@@ -3,3 +3,5 @@ planomode
 node_modules/
 dist/
 client/.env
+# Local Netlify folder
+.netlify

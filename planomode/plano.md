@@ -1,1 +1,2 @@
-Quero criar um um site semelhante ao reddit, nome do projeto é Lilas (no Penpot é o 'prototipo 2'), como o intuito é criar um clone simples do reddit funcional, vamos colocar ele no usando mcp e api do (supabase e netfly conectados conectados no meu github )
+Quero criar um um site semelhante ao reddit, nome do projeto é Lilas (no Penpot é o 'prototipo 2'), como o intuito é criar um clone simples do reddit funcional, vamos colocar ele no usando mcp e api do (supabase e netfly conectados conectados no meu github ), quero cirar uma rede social, interprete um pouco da esquema que montamos no penpot. 
+Considere feito quando toda parte de criação das usuarias, backend funcionando corretamente, continue conectando os usuarios
