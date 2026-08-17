@@ -1,0 +1,89 @@
+import { BrowserRouter, Routes, Route, Navigate, NavLink, Link } from 'react-router-dom'
+import { AuthProvider, useAuth } from './lib/auth.jsx'
+import Login from './pages/Login.jsx'
+import Feed from './pages/Feed.jsx'
+import Post from './pages/Post.jsx'
+import Create from './pages/Create.jsx'
+import Communities from './pages/Communities.jsx'
+import Profile from './pages/Profile.jsx'
+
+function Topbar() {
+  const { profile } = useAuth()
+  return (
+    <header className="topbar">
+      <div className="topbar-inner">
+        <Link to="/" className="logo">
+          <span className="logo-badge">L</span>
+          Lilás
+        </Link>
+        <div className="search">
+          <input placeholder="Buscar no Lilás..." />
+        </div>
+        <nav className="topbar-nav">
+          <NavLink to="/" end>Início</NavLink>
+          <NavLink to="/comunidades">Comunidades</NavLink>
+          <Link to="/criar" className="btn btn-primary">+ Criar</Link>
+          <Link to={`/u/${profile?.apelido || ''}`} className="avatar-link" title={profile?.apelido}>
+            <span className="avatar">{(profile?.apelido || '?')[0].toUpperCase()}</span>
+          </Link>
+        </nav>
+      </div>
+    </header>
+  )
+}
+
+function BottomNav() {
+  return (
+    <nav className="bottomnav">
+      <NavLink to="/" end><span className="ico">⌂</span>Início</NavLink>
+      <NavLink to="/comunidades"><span className="ico">⌕</span>Comunidades</NavLink>
+      <NavLink to="/criar"><span className="ico">+</span>Criar</NavLink>
+      <NavLink to="/perfil"><span className="ico">◉</span>Perfil</NavLink>
+    </nav>
+  )
+}
+
+function Shell({ children }) {
+  return (
+    <>
+      <Topbar />
+      {children}
+      <BottomNav />
+    </>
+  )
+}
+
+function RequireAuth({ children }) {
+  const { session, loading } = useAuth()
+  if (loading) return null
+  if (!session) return <Navigate to="/login" replace />
+  return children
+}
+
+function AppRoutes() {
+  const { session, loading } = useAuth()
+  if (loading) return null
+
+  return (
+    <Routes>
+      <Route path="/login" element={session ? <Navigate to="/" replace /> : <Login />} />
+      <Route path="/" element={<RequireAuth><Shell><Feed /></Shell></RequireAuth>} />
+      <Route path="/post/:id" element={<RequireAuth><Shell><Post /></Shell></RequireAuth>} />
+      <Route path="/criar" element={<RequireAuth><Shell><Create /></Shell></RequireAuth>} />
+      <Route path="/comunidades" element={<RequireAuth><Shell><Communities /></Shell></RequireAuth>} />
+      <Route path="/u/:apelido" element={<RequireAuth><Shell><Profile /></Shell></RequireAuth>} />
+      <Route path="/perfil" element={<RequireAuth><Shell><Profile /></Shell></RequireAuth>} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  )
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </AuthProvider>
+  )
+}
