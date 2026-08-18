@@ -1,44 +1,58 @@
-# Task — 2026-08-18 (rede no ar + admin + login por senha)
+# Task — 2026-08-17 
 
-## O que foi feito hoje
+## O que foi feito
 
-### Deploy unificado no Netlify
-- Criado `netlify.toml` na raiz com `base = "client"` → o build do client (já configurado em `client/netlify.toml`) roda via auto-deploy do GitHub.
-- Env vars `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` setadas no site **`alilas`** (via `netlify.cmd env:set`; o endpoint direto da API deu 404 e o POST da conta criou var sem retorno).
-- `git push` agora dispara deploy automático — site oficial é **`https://alilas.netlify.app`**.
-- Site antigo **`lilas-341` deletado** após validação do novo.
-- `site_url` do Supabase Auth atualizado para `https://alilas.netlify.app` (apontava pro site deletado).
+### Backend (Supabase)
+- Projeto **LIlas** (`gmmocqgdjmtlrahnfgye`, ca-central-1) criado e configurado.
+- Migração aplicada:
+  - 7 tabelas: `profiles`, `communities`, `community_members`, `posts`, `comments`, `likes`, `follows`.
+  - Trigger `handle_new_user` — cria `profiles` automaticamente ao criar usuário (apelido vem de `raw_user_meta_data`, fallback `user_<id>`).
+  - 21 políticas RLS.
+  - Seed das 5 comunidades do design Penpot: `r/AgostoLilas`, `r/Mulheres`, `r/LeiMariaPenha`, `r/SaudeFeminina`, `r/Enfrentamento`.
+- Verificado em produção: signup criou usuário em `auth.users` + trigger criou o `profiles`. Banco limpo ao final (0 usuários, 5 comunidades).
 
-### Admin de moderação
-- Migration: coluna `is_admin boolean NOT NULL DEFAULT false` em `profiles`.
-- Políticas RLS de DELETE admin em `posts` e `comments` (`EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin)`).
-- UI: botão 🗑 em PostCard e nos comentários, visível para admin ou dono do conteúdo (apagar post remove os comentários via cascade).
-- Usuário admin criado: `sfernandovianna@gmail.com` / apelido `admin`, `is_admin = true`.
+### Client (Vite + React)
+- Aplicação completa em `client/`: Feed, Post, Criar, Comunidades, Perfil (com Seguir), Login OTP, topbar/bottomnav, PostCard.
+- Design conforme protótipo Penpot: `#7c5ce0` / `#5b3fc4` / `#ff6b9d` / fundo `#f7f5fb`.
+- `vite build` passa.
+- Env vars do client em `client/.env` (gitignored) e `.env.example` (commitado).
 
-### Correção de bug do signup
-- Erro "Database error saving new user" ocorria quando o apelido escolhido já existia (UNIQUE) — o trigger `handle_new_user` só tratava conflito no `id`. Corrigido: apelido repetido agora cai no fallback `user_<id>` em vez de quebrar o cadastro.
+### Deploy
+- Netlify: site `lilas-341.netlify.app` criado, env vars `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` setadas, deploy `--build --prod` no ar.
+- GitHub: commits enviados para `Fernand0-Vianna/Lilas` (main).
 
-### Login por email + senha (no lugar do código OTP)
-- `Login.jsx` reescrito com abas **Entrar / Criar conta**:
-  - Entrar: `signInWithPassword`.
-  - Criar conta: `signUp` com apelido + senha; envia link de confirmação por email (o projeto tem `mailer_autoconfirm: false`).
-- Profile ganhou bloco **"Trocar senha"** (`supabase.auth.updateUser`).
-- Validado: login por API 200 OK, CORS liberado para `alilas.netlify.app`.
+## Bloqueios / aprendizado
+- Rate limit do email embutido do Supabase: **2 emails/hora/IP** (`rate_limit_email_sent: 2`). Exauri em testes via API → 429. Não é bug do app.
+- `example.com` é rejeitado como email inválido pelo GoTrue.
+- A automação de browser (Obscura) não dispara `onChange` de inputs controlados do React e bloqueia fetch in-page — problema do harness, não do app.
 
-### Commits no GitHub (`Fernand0-Vianna/Lilas`, main)
-- `e0a6d79` — fix likes_count + moderação admin + netlify.toml raiz.
-- `cd56e13` — login email e senha.
-- `fb10281` — perfil: trocar senha.
+## Progresso — 2026-08-18 (execução do plano)
+
+### Config aplicada (Management API)
+- `site_url` → `https://lilas-341.netlify.app` ✅ (era `http://localhost:3000`)
+- `rate_limit_email_sent` **não** pode subir sem SMTP custom — o endpoint exige `SMTP_ADMIN_EMAIL/HOST/PORT/USER/PASS` configurados. Ficou em 2.
+
+### Bugs de schema corrigidos (migrations)
+- FKs `posts.author_id`, `comments.author_id`, `community_members.user_id`, `follows.follower_id/following_id` apontavam para `auth.users` → PostgREST não achava relação `posts→profiles` e os joins embedados do app (`profiles(...)`) falhavam (PGRST200). Retargetadas para `profiles(id)` ON DELETE CASCADE.
+- `likes.user_id` voltou a apontar para `auth.users(id)` para desambiguar a relação `posts→profiles` (evita PGRST201 many-to-many via likes).
+- Bug no app: `Post.jsx` usava `likes_count(*)` (view inexistente) → página do post quebrava. Removido; `PostCard` já conta curtidas sozinho.
+
+### Teste de fluxo completo (via REST, usuários de teste)
+Todos os 14 checks PASS: entrar em comunidade, criar post, comentar, curtir, seguir, ler feed com joins (`profiles`, `communities`), contagem de likes, RLS (anon 401 para read/write), trigger de perfil. Dados de teste limpos ao final (0 usuários, 5 comunidades).
+- Validado que o email OTP dispara sem erro (200) — rate limit de 2/hora bateu no 2º envio (429), confirmando o gargalo.
+- Observação: `email@dominio.test`/`.local` são rejeitados pelo GoTrue (`email_address_invalid`); usar domínio real.
 
 ## Próximos passos
-1. **Trocar a senha provisória do admin** (`troque-depois-123`): entrar em `alilas.netlify.app` com `sfernandovianna@gmail.com` e trocar no perfil.
-2. **Configurar SMTP custom** (ex: Resend/SendGrid) para os emails de confirmação não dependerem do rate limit de 2/hora do email embutido.
-3. **Validar fluxo manualmente no navegador real**: criar conta nova (confirmação por email) e login com senha do admin.
-4. Revisar `disable_signup`/política de moderação se a rede for abrir para público.
+1. **Validar fluxo de login manualmente** (passo que não dá pra automatizar sem acesso a inbox): abrir `https://lilas-341.netlify.app`, email + apelido → Entrar → digitar código → Confirmar. Reportar erro exato se falhar. (O código OTP tem 8 dígitos; expira em 1h.)
+2. **Configurar SMTP custom para produção** (limite de 2 emails/hora/IP é baixo para usuários reais): exige `SMTP_ADMIN_EMAIL/HOST/PORT/USER/PASS` no dashboard Supabase (ex: Resend/SendGrid).
+3. Fazer `git commit` + redeploy do client no Netlify para o fix do `Post.jsx` subir (e confirmar feed/post no ar).
 
 ## Config relevante
 - Projeto Supabase: `gmmocqgdjmtlrahnfgye` / `https://gmmocqgdjmtlrahnfgye.supabase.co`
-- Netlify: `alilas.netlify.app` (auto-deploy do GitHub)
-- GitHub: `Fernand0-Vianna/Lilas` (branch `main`)
-- Admin: `sfernandovianna@gmail.com` / apelido `admin` / `is_admin = true`
-- Credenciais de dev: Management API em `E:\Agostolilas\Lilas\.env`; Netlify token em `%APPDATA%\netlify\Config\config.json`.
+- Netlify: `lilas-341.netlify.app`
+- GitHub: `Fernand0-Vianna/Lilas`
+- Supabase Auth: `mailer_autoconfirm: false`, `disable_signup: false`
+
+
+---
+
