@@ -13,6 +13,9 @@ export default function Profile() {
   const [followers, setFollowers] = useState(0)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [pw1, setPw1] = useState('')
+  const [pw2, setPw2] = useState('')
+  const [pwMsg, setPwMsg] = useState('')
 
   const target = apelido || session.user.id
 
@@ -50,6 +53,17 @@ export default function Profile() {
     }
   }
 
+  async function changePassword() {
+    setPwMsg('')
+    if (!pw1 || pw1.length < 6) { setPwMsg('A senha deve ter ao menos 6 caracteres.'); return }
+    if (pw1 !== pw2) { setPwMsg('As senhas não conferem.'); return }
+    const { error } = await supabase.auth.updateUser({ password: pw1 })
+    if (error) { setPwMsg(error.message); return }
+    setPwMsg('Senha atualizada.')
+    setPw1('')
+    setPw2('')
+  }
+
   if (loading) return <div className="container" style={{ paddingTop: 24 }}>Carregando...</div>
   if (notFound) return <div className="container" style={{ paddingTop: 24 }}>Usuário não encontrado.</div>
 
@@ -75,6 +89,22 @@ export default function Profile() {
             </button>
           )}
         </div>
+
+        {isMe && (
+          <div className="card" style={{ marginTop: 16 }}>
+            <h3 style={{ fontSize: 16, marginBottom: 12 }}>Trocar senha</h3>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+              <div style={{ flex: 1 }}>
+                <input className="field" type="password" placeholder="Nova senha" value={pw1} onChange={e => setPw1(e.target.value)} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <input className="field" type="password" placeholder="Repetir senha" value={pw2} onChange={e => setPw2(e.target.value)} />
+              </div>
+              <button className="btn btn-primary" onClick={changePassword}>Salvar</button>
+            </div>
+            {pwMsg && <p style={{ fontSize: 13, color: pwMsg === 'Senha atualizada.' ? '#1a7f46' : '#d6336c', marginTop: 8 }}>{pwMsg}</p>}
+          </div>
+        )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
           {posts.map(p => <PostCard key={p.id} post={p} onDeleted={() => setPosts(ps => ps.filter(x => x.id !== p.id))} />)}
