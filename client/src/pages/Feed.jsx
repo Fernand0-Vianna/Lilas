@@ -24,11 +24,11 @@ function useFeed() {
     })
   }, [])
 
-  return { posts, communities, loading }
+  return { posts, communities, loading, removePost: id => setPosts(p => p.filter(x => x.id !== id)) }
 }
 
 export default function Feed() {
-  const { posts, communities, loading } = useFeed()
+  const { posts, communities, loading, removePost } = useFeed()
   const { profile } = useAuth()
 
   return (
@@ -51,7 +51,7 @@ export default function Feed() {
             <button>Em alta</button>
           </div>
           {loading ? <p style={{ color: 'var(--muted)' }}>Carregando...</p> :
-            posts.map(p => <PostCard key={p.id} post={p} />)}
+            posts.map(p => <PostCard key={p.id} post={p} onDeleted={() => removePost(p.id)} />)}
           {!loading && posts.length === 0 && (
             <div className="card" style={{ textAlign: 'center', padding: 40 }}>
               <h3>Nada por aqui ainda</h3>

@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
 import PostCard from '../components/PostCard.jsx'
 
 export default function Post() {
   const { id } = useParams()
-  const { session } = useAuth()
+  const navigate = useNavigate()
+  const { session, profile } = useAuth()
   const [post, setPost] = useState(null)
   const [comments, setComments] = useState([])
   const [body, setBody] = useState('')
@@ -16,14 +17,13 @@ export default function Post() {
     Promise.all([
       supabase
         .from('posts')
-        .select('*, profiles(apelido), communities(slug, name), likes_count(*)')
+        .select('*, profiles(apelido), communities(slug, name)')
         .eq('id', id)
         .single(),
       supabase.from('comments').select('*, profiles(apelido)').eq('post_id', id).order('created_at')
     ]).then(([p, c]) => {
       const data = p.data
       if (data) {
-        data.likes_count = data.likes_count?.length || 0
         setPost(data)
       }
       setComments(c.data || [])
@@ -43,13 +43,19 @@ export default function Post() {
     setBody('')
   }
 
+  async function deleteComment(commentId) {
+    if (!window.confirm('Excluir este comentário?')) return
+    await supabase.from('comments').delete().eq('id', commentId)
+    setComments(c => c.filter(x => x.id !== commentId))
+  }
+
   if (loading) return <div className="container" style={{ paddingTop: 24 }}>Carregando...</div>
   if (!post) return <div className="container" style={{ paddingTop: 24 }}>Post não encontrado.</div>
 
   return (
     <div className="container" style={{ maxWidth: 760 }}>
       <div style={{ paddingTop: 24 }}>
-        <PostCard post={post} />
+        <PostCard post={post} onDeleted={() => navigate('/')} />
         <div className="card" style={{ marginTop: 16 }}>
           <h3 style={{ fontSize: 16, marginBottom: 12 }}>Comentários</h3>
           <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
@@ -66,10 +72,13 @@ export default function Post() {
           {comments.map(c => (
             <div key={c.id} className="comment">
               <span className="avatar">{(c.profiles?.apelido || '?')[0].toUpperCase()}</span>
-              <div>
+              <div style={{ flex: 1 }}>
                 <div className="c-meta">u/{c.profiles?.apelido}</div>
                 <div className="c-body">{c.body}</div>
               </div>
+              {(profile?.is_admin || c.author_id === session.user.id) && (
+                <button className="action" style={{ color: 'var(--danger, #c0392b)' }} onClick={() => deleteComment(c.id)}>🗑</button>
+              )}
             </div>
           ))}
         </div>

@@ -77,7 +77,7 @@ export default function Profile() {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
-          {posts.map(p => <PostCard key={p.id} post={p} />)}
+          {posts.map(p => <PostCard key={p.id} post={p} onDeleted={() => setPosts(ps => ps.filter(x => x.id !== p.id))} />)}
           {posts.length === 0 && (
             <div className="card" style={{ textAlign: 'center', padding: 40 }}>
               <p style={{ color: 'var(--muted)' }}>Nenhuma publicação ainda.</p>

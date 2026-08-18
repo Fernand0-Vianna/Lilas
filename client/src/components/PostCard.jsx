@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
 
-export default function PostCard({ post }) {
-  const { session } = useAuth()
+export default function PostCard({ post, onDeleted }) {
+  const { session, profile } = useAuth()
+  const navigate = useNavigate()
   const [liked, setLiked] = useState(false)
   const [likes, setLikes] = useState(0)
   const [comments, setComments] = useState(0)
@@ -36,6 +37,14 @@ export default function PostCard({ post }) {
     }
   }
 
+  async function deletePost() {
+    const ok = window.confirm('Excluir esta publicação?')
+    if (!ok) return
+    await supabase.from('posts').delete().eq('id', post.id)
+    if (onDeleted) onDeleted()
+    else navigate('/')
+  }
+
   const time = new Date(post.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
   return (
     <article className="card">
@@ -59,6 +68,9 @@ export default function PostCard({ post }) {
         </button>
         <Link to={`/post/${post.id}`} className="action">💬 {comments}</Link>
         <button className="action">🔖</button>
+        {(profile?.is_admin || post.author_id === session.user.id) && (
+          <button className="action" style={{ marginLeft: 'auto', color: 'var(--danger, #c0392b)' }} onClick={deletePost}>🗑</button>
+        )}
       </div>
     </article>
   )
