@@ -121,6 +121,9 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
 .error { background: #fff0f4; color: #d6336c; border: 1px solid #ffc9d6; padding: 10px 14px; border-radius: 10px; font-size: 13px; margin-bottom: 16px; }
 .ok { background: #eefbf3; color: #1a7f46; border: 1px solid #b8ecd0; padding: 10px 14px; border-radius: 10px; font-size: 13px; margin-bottom: 16px; }
+.login-tabs { display: flex; gap: 6px; background: #f1eef8; border-radius: 12px; padding: 4px; margin-bottom: 20px; }
+.login-tabs .tab { flex: 1; padding: 9px 0; border: none; background: transparent; border-radius: 9px; font-size: 14px; font-weight: 700; color: var(--muted); cursor: pointer; }
+.login-tabs .tab.active { background: var(--card); color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
 
 /* ---------- Create ---------- */
 .create-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
