@@ -42,10 +42,23 @@ Todos os 14 checks PASS: entrar em comunidade, criar post, comentar, curtir, seg
 - Validado que o email OTP dispara sem erro (200) — rate limit de 2/hora bateu no 2º envio (429), confirmando o gargalo.
 - Observação: `email@dominio.test`/`.local` são rejeitados pelo GoTrue (`email_address_invalid`); usar domínio real.
 
+## Progresso — 2026-08-18 (continuação)
+
+### Site renomeado
+- Netlify: site renomeado de `lilas-341.netlify.app` → **`alilas.netlify.app`**. O domínio antigo retorna "Site not found" (morto).
+- Supabase `site_url` já corrigido → `https://alilas.netlify.app` ✅ (via Management API, token em `.env` `#at:`).
+
+### Login validado (email + senha)
+- Fluxo mudou de OTP para **email + senha** (commits `cd56e13`, `fb10281`, `73f97a7`) — o passo "digitar código OTP" do plano original está obsoleto.
+- Teste de ponta a ponta com usuário de teste `teste.lilas@proton.me` / senha `Lilas@2026teste` (criado via admin API, confirmado direto no banco para não gastar rate limit de email):
+  - `POST /auth/v1/token?grant_type=password` → 200, usuário confirmado ✅
+  - Feed autenticado lê joins `profiles(apelido)` + `communities(name)` ✅
+  - Tela de login no ar em `alilas.netlify.app` renderiza corretamente (harness de browser bloqueia fetch in-page — problema do harness, não do app; validado via REST).
+- `Post.jsx` já não usa `likes_count(*)` (fix commitado em `e0a6d79`); working tree limpo, deploy do client no ar com a tela nova.
+
 ## Próximos passos
-1. **Validar fluxo de login manualmente** (passo que não dá pra automatizar sem acesso a inbox): abrir `https://lilas-341.netlify.app`, email + apelido → Entrar → digitar código → Confirmar. Reportar erro exato se falhar. (O código OTP tem 8 dígitos; expira em 1h.)
-2. **Configurar SMTP custom para produção** (limite de 2 emails/hora/IP é baixo para usuários reais): exige `SMTP_ADMIN_EMAIL/HOST/PORT/USER/PASS` no dashboard Supabase (ex: Resend/SendGrid).
-3. Fazer `git commit` + redeploy do client no Netlify para o fix do `Post.jsx` subir (e confirmar feed/post no ar).
+1. **Configurar SMTP custom para produção** (único bloqueio real): limite `rate_limit_email_sent: 2`/hora é baixo para usuários reais. Exige `SMTP_ADMIN_EMAIL/HOST/PORT/USER/PASS` no dashboard Supabase (ex: Resend/SendGrid) — precisa das credenciais.
+2. Confirmar manualmente a chegada do email de confirmação (depende do passo 1 ou espera do reset do rate limit de 2 emails/hora).
 
 ## Config relevante
 - Projeto Supabase: `gmmocqgdjmtlrahnfgye` / `https://gmmocqgdjmtlrahnfgye.supabase.co`
