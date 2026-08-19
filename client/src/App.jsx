@@ -7,6 +7,8 @@ import Post from './pages/Post.jsx'
 import Create from './pages/Create.jsx'
 import Communities from './pages/Communities.jsx'
 import Profile from './pages/Profile.jsx'
+import BottomNav from './components/BottomNav.jsx'
+import Icon from './components/Icons.jsx'
 
 function Topbar() {
   const { profile } = useAuth()
@@ -21,26 +23,16 @@ function Topbar() {
           <input placeholder="Buscar no Lilás..." />
         </div>
         <nav className="topbar-nav">
-          <NavLink to="/" end>Início</NavLink>
+          <NavLink to="/" end>Feed</NavLink>
           <NavLink to="/comunidades">Comunidades</NavLink>
           <Link to="/criar" className="btn btn-primary">+ Criar</Link>
+          <button className="topbar-bell" title="Alertas"><Icon name="bell" size={18} /></button>
           <Link to={`/u/${profile?.apelido || ''}`} className="avatar-link" title={profile?.apelido}>
             <span className="avatar">{(profile?.apelido || '?')[0].toUpperCase()}</span>
           </Link>
         </nav>
       </div>
     </header>
-  )
-}
-
-function BottomNav() {
-  return (
-    <nav className="bottomnav">
-      <NavLink to="/" end><span className="ico">⌂</span>Início</NavLink>
-      <NavLink to="/comunidades"><span className="ico">⌕</span>Comunidades</NavLink>
-      <NavLink to="/criar"><span className="ico">+</span>Criar</NavLink>
-      <NavLink to="/perfil"><span className="ico">◉</span>Perfil</NavLink>
-    </nav>
   )
 }
 
@@ -72,8 +64,8 @@ function AppRoutes() {
       <Route path="/post/:id" element={<RequireAuth><Shell><Post /></Shell></RequireAuth>} />
       <Route path="/criar" element={<RequireAuth><Shell><Create /></Shell></RequireAuth>} />
       <Route path="/comunidades" element={<RequireAuth><Shell><Communities /></Shell></RequireAuth>} />
-      <Route path="/u/:apelido" element={<RequireAuth><Shell><Profile /></Shell></RequireAuth>} />
-      <Route path="/perfil" element={<RequireAuth><Shell><Profile /></Shell></RequireAuth>} />
+      <Route path="/u/:apelido" element={<RequireAuth><Profile /></RequireAuth>} />
+      <Route path="/perfil" element={<RequireAuth><Profile /></RequireAuth>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

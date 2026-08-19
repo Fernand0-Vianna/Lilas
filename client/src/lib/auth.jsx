@@ -36,8 +36,10 @@ export function AuthProvider({ children }) {
     setProfile(data)
   }
 
+  const signOut = () => supabase.auth.signOut()
+
   return (
-    <AuthContext.Provider value={{ session, profile, refreshProfile, loading }}>
+    <AuthContext.Provider value={{ session, profile, refreshProfile, signOut, loading }}>
       {children}
     </AuthContext.Provider>
   )

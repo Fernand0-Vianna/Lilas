@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
+import { compact, timeAgo } from '../lib/format.js'
+import Icon from './Icons.jsx'
 
 export default function PostCard({ post, onDeleted }) {
   const { session, profile } = useAuth()
@@ -45,32 +47,39 @@ export default function PostCard({ post, onDeleted }) {
     else navigate('/')
   }
 
-  const time = new Date(post.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
+  const canDelete = profile?.is_admin || post.author_id === session.user.id
   return (
-    <article className="card">
+    <article className="card post-card">
       <div className="post-head">
         <span className="avatar">{(author?.apelido || '?')[0].toUpperCase()}</span>
         <div className="post-meta">
           <Link to={`/u/${author?.apelido}`} className="author">u/{author?.apelido}</Link>
-          <span> · </span>
-          <Link to="/comunidades" className="comm">{post.communities?.name}</Link>
-          <span className="time"> · {time}</span>
+          <div className="comm">
+            <Link to="/comunidades" className="comm-name">{post.communities?.name}</Link>
+            <span className="time"> · {timeAgo(post.created_at)}</span>
+          </div>
         </div>
+        {canDelete && (
+          <button className="post-more" title="Excluir publicação" onClick={deletePost}>
+            <Icon name="more" size={18} />
+          </button>
+        )}
       </div>
-      <Link to={`/post/${post.id}`}>
+      <Link to={`/post/${post.id}`} className="post-link">
         <h3 className="post-title">{post.title}</h3>
         {post.body && <p className="post-body">{post.body}</p>}
-        {post.image_url && <img src={post.image_url} alt="" style={{ width: '100%', borderRadius: 10, maxHeight: 400, objectFit: 'cover' }} />}
+        {post.image_url && <img src={post.image_url} alt="" className="post-img" />}
       </Link>
       <div className="post-actions">
         <button className={`action ${liked ? 'liked' : ''}`} onClick={toggleLike}>
-          {liked ? '♥' : '♡'} {likes}
+          <Icon name="heart" size={15} filled={liked} /> <b className="like-count">{compact(likes)}</b>
         </button>
-        <Link to={`/post/${post.id}`} className="action">💬 {comments}</Link>
-        <button className="action">🔖</button>
-        {(profile?.is_admin || post.author_id === session.user.id) && (
-          <button className="action" style={{ marginLeft: 'auto', color: 'var(--danger, #c0392b)' }} onClick={deletePost}>🗑</button>
-        )}
+        <Link to={`/post/${post.id}`} className="action">
+          <Icon name="comment" size={15} /> <span>{compact(comments)}</span>
+        </Link>
+        <button className="action" style={{ marginLeft: 'auto' }}>
+          <Icon name="bookmark" size={15} />
+        </button>
       </div>
     </article>
   )
