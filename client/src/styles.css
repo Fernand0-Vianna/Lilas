@@ -53,10 +53,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   display: flex; align-items: center; gap: 20px;
 }
 .logo { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 18px; color: var(--primary-dark); }
-.logo-badge {
-  width: 28px; height: 28px; border-radius: 50%;
-  background: var(--primary); display: grid; place-items: center; color: #fff; font-size: 13px;
-}
+.logo-img { height: 28px; width: auto; display: block; }
 .search { flex: 1; max-width: 420px; }
 .search input {
   width: 100%; padding: 8px 16px; border-radius: 999px; border: none;
@@ -105,10 +102,10 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .welcome-btn { width: 100%; }
 
 /* ---------- Login ---------- */
-.login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.login-wrap { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 24px; }
 .login-card { background: var(--card); border-radius: 20px; box-shadow: var(--shadow); padding: 40px; width: 100%; max-width: 440px; }
 .login-logo { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 8px; }
-.login-logo .logo-badge { width: 40px; height: 40px; font-size: 18px; }
+.login-logo-img { height: 44px; width: auto; display: block; }
 .login-card h1 { font-size: 22px; text-align: center; font-weight: 800; }
 .login-sub { text-align: center; color: var(--muted); font-size: 13px; margin: 8px 0 24px; }
 .field { margin-bottom: 16px; }
@@ -118,6 +115,9 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   font-size: 14px; outline: none; transition: border 0.15s;
 }
 .field input:focus { border-color: var(--primary); }
+.compose-row { display: flex; gap: 10px; margin-bottom: 16px; }
+.compose-row textarea { flex: 1; }
+.compose-row .btn { flex-shrink: 0; }
 .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
 .error { background: #fff0f4; color: #d6336c; border: 1px solid #ffc9d6; padding: 10px 14px; border-radius: 10px; font-size: 13px; margin-bottom: 16px; }
 .ok { background: #eefbf3; color: #1a7f46; border: 1px solid #b8ecd0; padding: 10px 14px; border-radius: 10px; font-size: 13px; margin-bottom: 16px; }
@@ -145,6 +145,7 @@ textarea { width: 100%; resize: vertical; }
 .profile-head h2 { font-size: 20px; }
 .profile-head .handle { color: var(--muted); font-size: 14px; }
 .profile-head .bio { color: var(--muted); font-size: 14px; margin-top: 6px; }
+.pw-row { display: flex; gap: 10px; align-items: flex-end; }
 .stats { display: flex; gap: 28px; margin-top: 12px; }
 .stats div b { font-size: 18px; display: block; }
 .stats div span { font-size: 12px; color: var(--muted); }
@@ -157,19 +158,45 @@ textarea { width: 100%; resize: vertical; }
 .comm-meta { font-size: 12px; color: var(--muted-2); margin-bottom: 2px; }
 .comm-card .btn { margin-left: auto; flex-shrink: 0; }
 
-/* ---------- Mobile ---------- */
+/* ---------- Responsive ---------- */
 .bottomnav {
   display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
   background: var(--card); border-top: 1px solid var(--border); padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
 }
-.bottomnav a { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; color: var(--muted); padding: 4px; flex: 1; }
+.bottomnav a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; color: var(--muted); padding: 4px; flex: 1; min-height: 52px; }
 .bottomnav a.active { color: var(--primary-dark); font-weight: 700; }
 .bottomnav .ico { font-size: 20px; line-height: 1; }
 
-@media (max-width: 1000px) {
+/* Touch devices: reachable targets */
+@media (pointer: coarse) {
+  .btn, .action, .comm-chip, .tab { min-height: 44px; }
+  .comm-chip { display: inline-flex; align-items: center; justify-content: center; }
+  .field input, .compose-row textarea, textarea { font-size: 16px; }
+}
+
+/* Tablet: two columns, horizontal nav, no bottom bar */
+@media (min-width: 768px) and (max-width: 1199px) {
+  .layout { grid-template-columns: 1fr 300px; }
+  .rail { display: none; }
+  .bottomnav { display: none; }
+}
+
+/* Mobile: single column, bottom nav, compact topbar */
+@media (max-width: 767px) {
   .layout { grid-template-columns: 1fr; }
   .side, .rail { display: none; }
   .bottomnav { display: flex; }
-  body { padding-bottom: 60px; }
+  body { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
   .topbar-nav a:not(.avatar-link) { display: none; }
+  .topbar-inner { gap: 12px; padding: 0 12px; }
+  .field input { font-size: 16px; }
+  .login-card { padding: 28px 20px; }
+  .compose-row { flex-direction: column; align-items: stretch; }
+  .compose-row .btn { width: 100%; }
+  .pw-row { flex-direction: column; align-items: stretch; }
+  .pw-row .btn { width: 100%; }
+  .profile-head { flex-wrap: wrap; }
+  .profile-head .btn { margin-left: auto; }
+  .comm-card { flex-wrap: wrap; }
+  .post-actions { flex-wrap: wrap; }
 }

@@ -93,7 +93,7 @@ export default function Profile() {
         {isMe && (
           <div className="card" style={{ marginTop: 16 }}>
             <h3 style={{ fontSize: 16, marginBottom: 12 }}>Trocar senha</h3>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+            <div className="pw-row">
               <div style={{ flex: 1 }}>
                 <input className="field" type="password" placeholder="Nova senha" value={pw1} onChange={e => setPw1(e.target.value)} />
               </div>

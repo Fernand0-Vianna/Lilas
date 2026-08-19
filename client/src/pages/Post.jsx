@@ -58,11 +58,11 @@ export default function Post() {
         <PostCard post={post} onDeleted={() => navigate('/')} />
         <div className="card" style={{ marginTop: 16 }}>
           <h3 style={{ fontSize: 16, marginBottom: 12 }}>Comentários</h3>
-          <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+          <div className="compose-row">
             <textarea
               className="field"
               rows={2}
-              style={{ flex: 1, padding: '11px 14px', border: '1.5px solid var(--border)', borderRadius: 10, outline: 'none' }}
+              style={{ padding: '11px 14px', border: '1.5px solid var(--border)', borderRadius: 10, outline: 'none' }}
               placeholder="Compartilhe apoio..."
               value={body}
               onChange={e => setBody(e.target.value)}

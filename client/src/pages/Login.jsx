@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
+import logo from '../assets/lilas-logo.svg'
 
 export default function Login() {
   const [mode, setMode] = useState('entrar')
@@ -51,7 +52,7 @@ export default function Login() {
   return (
     <div className="login-wrap" style={{ background: 'linear-gradient(160deg,#5b3fc4,#7c5ce0 55%,#ff6b9d)' }}>
       <div className="login-card">
-        <div className="login-logo"><span className="logo-badge">L</span><h1>Lilás</h1></div>
+        <div className="login-logo"><img src={logo} alt="Lilás" className="login-logo-img" /><h1>Lilás</h1></div>
         <p className="login-sub">Sua comunidade segura para falar sobre violência contra a mulher, sem expor quem você é.</p>
 
         <div className="login-tabs">

@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, NavLink, Link } from 'react-router-dom'
 import { AuthProvider, useAuth } from './lib/auth.jsx'
 import Login from './pages/Login.jsx'
+import logo from './assets/lilas-logo.svg'
 import Feed from './pages/Feed.jsx'
 import Post from './pages/Post.jsx'
 import Create from './pages/Create.jsx'
@@ -13,7 +14,7 @@ function Topbar() {
     <header className="topbar">
       <div className="topbar-inner">
         <Link to="/" className="logo">
-          <span className="logo-badge">L</span>
+          <img src={logo} alt="Lilás" className="logo-img" />
           Lilás
         </Link>
         <div className="search">
