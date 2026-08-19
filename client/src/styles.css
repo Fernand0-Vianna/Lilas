@@ -68,6 +68,12 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   background: #f7f5fb; border: 1px solid #e8e2f0; color: var(--muted); margin: 0 4px;
 }
 .topbar-bell:hover { color: var(--primary-dark); }
+.avatar-menu { position: relative; }
+.avatar-menu .avatar-link { background: none; border: none; cursor: pointer; padding: 0; }
+.avatar-dropdown { position: absolute; right: 0; top: 44px; z-index: 30; background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12); padding: 6px; min-width: 180px; display: flex; flex-direction: column; }
+.avatar-dropdown a, .avatar-dropdown button { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 8px; font-size: 14px; color: var(--text); background: none; border: none; text-align: left; cursor: pointer; }
+.avatar-dropdown a:hover, .avatar-dropdown button:hover { background: var(--bg); }
+.avatar-dropdown button { color: var(--danger, #d6336c); }
 .avatar { width: 32px; height: 32px; border-radius: 50%; background: #dcd2f5; display: grid; place-items: center; font-weight: 700; font-size: 13px; color: var(--primary-dark); }
 
 /* ---------- Layout ---------- */

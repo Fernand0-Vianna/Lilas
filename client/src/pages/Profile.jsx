@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
 import { compact } from '../lib/format.js'
@@ -12,6 +12,7 @@ export default function Profile() {
   const { apelido } = useParams()
   const { session, signOut, refreshProfile } = useAuth()
   const navigate = useNavigate()
+  const [params] = useSearchParams()
   const [profile, setProfile] = useState(null)
   const [posts, setPosts] = useState([])
   const [savedPosts, setSavedPosts] = useState([])
@@ -39,6 +40,11 @@ export default function Profile() {
     q.then(async ({ data }) => {
       if (!data) { setNotFound(true); setLoading(false); return }
       setProfile(data)
+      if (params.get('editar') === '1') {
+        setBio(data.bio || '')
+        setApelido2(data.apelido || '')
+        setEditOpen(true)
+      }
       const [postsR, followR, followersR, followingR] = await Promise.all([
         supabase.from('posts').select('*, profiles(apelido, avatar_url), communities(name, slug)').eq('author_id', data.id).order('created_at', { ascending: false }),
         supabase.from('follows').select('id').eq('follower_id', session.user.id).eq('following_id', data.id).maybeSingle(),
