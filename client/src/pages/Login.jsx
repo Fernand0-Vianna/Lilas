@@ -13,6 +13,7 @@ export default function Login() {
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
   const [loading, setLoading] = useState(false)
+  const [resent, setResent] = useState(false)
   const navigate = useNavigate()
   const { refreshProfile } = useAuth()
 
@@ -30,7 +31,7 @@ export default function Login() {
         password
       })
       setLoading(false)
-      if (error) { setError(ptError(error)); return }
+      if (error) { setError(ptError(error)); setResent(false); return }
       await refreshProfile()
       navigate('/')
     } else {
@@ -45,9 +46,19 @@ export default function Login() {
         options: { data: { apelido: apelido.trim().replace(/^@/, '') } }
       })
       setLoading(false)
-      if (error) { setError(ptError(error)); return }
+      if (error) { setError(ptError(error)); setResent(false); return }
       setInfo('Conta criada! Confirme seu email pelo link enviado para entrar.')
+      setResent(false)
     }
+  }
+
+  async function resendConfirmation() {
+    setError('')
+    setInfo('')
+    const { error } = await supabase.auth.resend({ type: 'signup', email: email.trim() })
+    if (error) { setError(ptError(error)); return }
+    setInfo('Reenviamos o link de confirmação. Verifique sua caixa de entrada e spam.')
+    setResent(true)
   }
 
   async function resetPassword() {
@@ -95,6 +106,16 @@ export default function Login() {
 
         {error && <div className="error">{error}</div>}
         {info && <div className="ok">{info}</div>}
+        {error && error.includes('Confirme seu email') && !resent && (
+          <button className="hint" style={{ display: 'block', margin: '0 auto 10px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary, #7c5ce0)', textDecoration: 'underline' }} onClick={resendConfirmation}>
+            Reenviar link de confirmação
+          </button>
+        )}
+        {mode === 'criar' && info && !resent && (
+          <button className="hint" style={{ display: 'block', margin: '0 auto 10px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary, #7c5ce0)', textDecoration: 'underline' }} onClick={resendConfirmation}>
+            Não recebeu o email? Reenviar
+          </button>
+        )}
 
         <button className="btn btn-primary btn-block" onClick={submit} disabled={loading}>
           {loading ? 'Aguarde...' : mode === 'entrar' ? 'Entrar' : 'Criar conta'}
