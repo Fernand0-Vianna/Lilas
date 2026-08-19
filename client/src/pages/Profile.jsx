@@ -10,10 +10,11 @@ import logo from '../assets/lilas-logo.svg'
 
 export default function Profile() {
   const { apelido } = useParams()
-  const { session, signOut } = useAuth()
+  const { session, signOut, refreshProfile } = useAuth()
   const navigate = useNavigate()
   const [profile, setProfile] = useState(null)
   const [posts, setPosts] = useState([])
+  const [savedPosts, setSavedPosts] = useState([])
   const [following, setFollowing] = useState(false)
   const [stats, setStats] = useState({ posts: 0, likes: 0, comments: 0, followers: 0, following: 0 })
   const [loading, setLoading] = useState(true)
@@ -23,6 +24,9 @@ export default function Profile() {
   const [pw1, setPw1] = useState('')
   const [pw2, setPw2] = useState('')
   const [pwMsg, setPwMsg] = useState('')
+  const [bio, setBio] = useState('')
+  const [apelido2, setApelido2] = useState('')
+  const [saveMsg, setSaveMsg] = useState('')
 
   useEffect(() => {
     setLoading(true)
@@ -77,6 +81,43 @@ export default function Profile() {
     setPw2('')
   }
 
+  function openEdit() {
+    setEditOpen(o => !o)
+    setBio(profile.bio || '')
+    setApelido2(profile.apelido || '')
+    setSaveMsg('')
+  }
+
+  async function saveProfile() {
+    setSaveMsg('')
+    if (!apelido2.trim()) { setSaveMsg('Escolha um apelido.'); return }
+    const { error } = await supabase.from('profiles').update({
+      apelido: apelido2.trim().replace(/^@/, ''),
+      bio: bio.trim()
+    }).eq('id', session.user.id)
+    if (error) { setSaveMsg(error.message); return }
+    await refreshProfile()
+    setProfile(p => ({ ...p, apelido: apelido2.trim().replace(/^@/, ''), bio: bio.trim() }))
+    setSaveMsg('Perfil atualizado.')
+  }
+
+  async function deleteAccount() {
+    if (!window.confirm('Tem certeza? Sua conta, posts, curtidas e seguidores serão excluídos permanentemente.')) return
+    if (!window.confirm('Confirme: esta ação não pode ser desfeita.')) return
+    await supabase.rpc('delete_account')
+    await signOut()
+    navigate('/login')
+  }
+
+  useEffect(() => {
+    if (tab !== 'saves') return
+    supabase.from('saves')
+      .select('post_id, posts(*, profiles(apelido, avatar_url), communities(slug, name), likes(count), comments(count))')
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => setSavedPosts((data || []).map(s => s.posts).filter(Boolean)))
+  }, [tab, session.user.id])
+
   if (loading) return <div className="container" style={{ paddingTop: 24 }}>Carregando...</div>
   if (notFound) return <div className="container" style={{ paddingTop: 24 }}>Usuário não encontrado.</div>
 
@@ -98,7 +139,7 @@ export default function Profile() {
           </Link>
           <span className="profile-topbar-title">{isMe ? 'Meu perfil' : `u/${profile.apelido}`}</span>
           {isMe && (
-            <button className="profile-gear" onClick={() => setEditOpen(o => !o)}>
+            <button className="profile-gear" onClick={openEdit}>
               <Icon name="gear" size={22} />
             </button>
           )}
@@ -120,7 +161,7 @@ export default function Profile() {
               {profile.bio && <p className="profile-bio">{profile.bio}</p>}
             </div>
             {isMe ? (
-              <button className="btn profile-edit" onClick={() => setEditOpen(o => !o)}>
+              <button className="btn profile-edit" onClick={openEdit}>
                 <Icon name="pen" size={15} /> Editar perfil
               </button>
             ) : (
@@ -143,7 +184,19 @@ export default function Profile() {
 
         {isMe && editOpen && (
           <div className="card profile-edit-panel">
-            <h3 style={{ fontSize: 16, marginBottom: 12 }}>Alterar senha</h3>
+            <h3 style={{ fontSize: 16, marginBottom: 12 }}>Editar perfil</h3>
+            <div className="field">
+              <label>Apelido</label>
+              <input value={apelido2} onChange={e => setApelido2(e.target.value)} placeholder="nome_fantasia" />
+            </div>
+            <div className="field">
+              <label>Bio</label>
+              <textarea rows={3} value={bio} onChange={e => setBio(e.target.value)} placeholder="Conte um pouco sobre você..." style={{ padding: '11px 14px', border: '1.5px solid var(--border)', borderRadius: 10, outline: 'none', fontFamily: 'inherit', fontSize: 14 }} />
+            </div>
+            {saveMsg && <p style={{ fontSize: 13, color: saveMsg === 'Perfil atualizado.' ? '#1a7f46' : '#d6336c', marginBottom: 12 }}>{saveMsg}</p>}
+            <button className="btn btn-primary" onClick={saveProfile}>Salvar perfil</button>
+
+            <h3 style={{ fontSize: 16, margin: '20px 0 12px' }}>Alterar senha</h3>
             <div className="pw-row">
               <div style={{ flex: 1 }}>
                 <input className="field" type="password" placeholder="Nova senha" value={pw1} onChange={e => setPw1(e.target.value)} />
@@ -156,6 +209,9 @@ export default function Profile() {
             {pwMsg && <p style={{ fontSize: 13, color: pwMsg === 'Senha atualizada.' ? '#1a7f46' : '#d6336c', marginTop: 8 }}>{pwMsg}</p>}
             <button className="btn btn-block" style={{ marginTop: 14, borderColor: 'var(--danger, #d6336c)', color: '#d6336c' }} onClick={async () => { await signOut(); navigate('/login') }}>
               Sair da conta
+            </button>
+            <button className="btn btn-block" style={{ marginTop: 8, borderColor: 'var(--danger, #d6336c)', color: '#d6336c' }} onClick={deleteAccount}>
+              Excluir conta
             </button>
           </div>
         )}
@@ -193,8 +249,15 @@ export default function Profile() {
             </aside>
           </div>
         ) : (
-          <div className="card" style={{ textAlign: 'center', padding: 40 }}>
-            <p style={{ color: 'var(--muted)' }}>Nenhum post salvo.</p>
+          <div className="profile-grid">
+            <div className="profile-posts">
+              {savedPosts.map(p => <PostCard key={p.id} post={p} onDeleted={() => setSavedPosts(ps => ps.filter(x => x.id !== p.id))} />)}
+              {savedPosts.length === 0 && (
+                <div className="card" style={{ textAlign: 'center', padding: 40 }}>
+                  <p style={{ color: 'var(--muted)' }}>Nenhum post salvo. Toque no marcador para guardar publicações.</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

@@ -3,6 +3,26 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
 import PostCard from '../components/PostCard.jsx'
+import Icon from '../components/Icons.jsx'
+
+function ReportComment({ commentId }) {
+  const { session } = useAuth()
+  const [open, setOpen] = useState(false)
+  const [sent, setSent] = useState(false)
+  async function send() {
+    await supabase.from('reports').insert({ comment_id: commentId, reporter_id: session.user.id })
+    setSent(true)
+  }
+  return (
+    <span className="report">
+      <button className="action" title="Denunciar comentário" onClick={() => setOpen(o => !o)}>
+        <Icon name="flag" size={14} />
+      </button>
+      {open && !sent && <button className="btn report-btn" onClick={send}>Denunciar</button>}
+      {open && sent && <span className="report-ok">Denúncia enviada.</span>}
+    </span>
+  )
+}
 
 export default function Post() {
   const { id } = useParams()
@@ -17,7 +37,7 @@ export default function Post() {
     Promise.all([
       supabase
         .from('posts')
-        .select('*, profiles(apelido), communities(slug, name)')
+        .select('*, profiles(apelido), communities(slug, name), likes(count), comments(count)')
         .eq('id', id)
         .single(),
       supabase.from('comments').select('*, profiles(apelido)').eq('post_id', id).order('created_at')
@@ -76,6 +96,7 @@ export default function Post() {
                 <div className="c-meta">u/{c.profiles?.apelido}</div>
                 <div className="c-body">{c.body}</div>
               </div>
+              <ReportComment commentId={c.id} />
               {(profile?.is_admin || c.author_id === session.user.id) && (
                 <button className="action" style={{ color: 'var(--danger, #c0392b)' }} onClick={() => deleteComment(c.id)}>🗑</button>
               )}

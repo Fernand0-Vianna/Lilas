@@ -1,35 +1,45 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
 import PostCard from '../components/PostCard.jsx'
 
-function useFeed() {
+function useFeed(q) {
   const [posts, setPosts] = useState([])
   const [communities, setCommunities] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    setLoading(true)
+    let query = supabase
+      .from('posts')
+      .select('*, profiles(apelido, avatar_url), communities(slug, name), likes(count), comments(count)')
+      .order('created_at', { ascending: false })
+      .limit(30)
+    if (q) query = query.ilike('title', `%${q}%`)
     Promise.all([
-      supabase
-        .from('posts')
-        .select('*, profiles(apelido, avatar_url), communities(slug, name)')
-        .order('created_at', { ascending: false })
-        .limit(30),
+      query,
       supabase.from('communities').select('*').order('members', { ascending: false }).limit(10)
     ]).then(([p, c]) => {
       setPosts(p.data || [])
       setCommunities(c.data || [])
       setLoading(false)
     })
-  }, [])
+  }, [q])
 
   return { posts, communities, loading, removePost: id => setPosts(p => p.filter(x => x.id !== id)) }
 }
 
 export default function Feed() {
-  const { posts, communities, loading, removePost } = useFeed()
+  const [params] = useSearchParams()
+  const q = params.get('q') || ''
+  const { posts, communities, loading, removePost } = useFeed(q)
   const { profile } = useAuth()
+  const [tab, setTab] = useState('voce')
+
+  const sorted = [...posts]
+  if (tab === 'alta') sorted.sort((a, b) => (b.likes?.[0]?.count || 0) - (a.likes?.[0]?.count || 0))
+  if (tab === 'novo') sorted.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
 
   return (
     <div className="container">
@@ -37,7 +47,7 @@ export default function Feed() {
         <aside className="rail">
           <h3>Comunidades</h3>
           {communities.map(c => (
-            <Link key={c.id} to="/comunidades" className="rail-item">
+            <Link key={c.id} to={`/c/${c.slug}`} className="rail-item">
               <span className="r">{c.name.replace('r/', '').slice(0, 1)}</span>
               {c.name}
             </Link>
@@ -45,18 +55,19 @@ export default function Feed() {
         </aside>
 
         <main className="main">
+          {q && <h2 style={{ fontSize: 18, margin: '16px 0' }}>Resultados para "{q}"</h2>}
           <div className="feed-tabs">
-            <button className="active">Para você</button>
-            <button>Novo</button>
-            <button>Em alta</button>
+            <button className={tab === 'voce' ? 'active' : ''} onClick={() => setTab('voce')}>Para você</button>
+            <button className={tab === 'novo' ? 'active' : ''} onClick={() => setTab('novo')}>Novo</button>
+            <button className={tab === 'alta' ? 'active' : ''} onClick={() => setTab('alta')}>Em alta</button>
           </div>
           {loading ? <p style={{ color: 'var(--muted)' }}>Carregando...</p> :
-            posts.map(p => <PostCard key={p.id} post={p} onDeleted={() => removePost(p.id)} />)}
-          {!loading && posts.length === 0 && (
+            sorted.map(p => <PostCard key={p.id} post={p} onDeleted={() => removePost(p.id)} />)}
+          {!loading && sorted.length === 0 && (
             <div className="card" style={{ textAlign: 'center', padding: 40 }}>
-              <h3>Nada por aqui ainda</h3>
-              <p style={{ color: 'var(--muted)', margin: '8px 0 16px' }}>Seja a primeira a compartilhar algo inspirador.</p>
-              <Link to="/criar" className="btn btn-primary">Criar post</Link>
+              <h3>{q ? 'Nada encontrado' : 'Nada por aqui ainda'}</h3>
+              <p style={{ color: 'var(--muted)', margin: '8px 0 16px' }}>{q ? 'Tente outra palavra-chave.' : 'Seja a primeira a compartilhar algo inspirador.'}</p>
+              {!q && <Link to="/criar" className="btn btn-primary">Criar post</Link>}
             </div>
           )}
         </main>

@@ -11,19 +11,22 @@ export default function PostCard({ post, onDeleted }) {
   const [liked, setLiked] = useState(false)
   const [likes, setLikes] = useState(0)
   const [comments, setComments] = useState(0)
+  const [saved, setSaved] = useState(false)
+  const [reporting, setReporting] = useState(false)
+  const [reason, setReason] = useState('')
+  const [reported, setReported] = useState(false)
   const [author, setAuthor] = useState(null)
 
   useEffect(() => {
     setAuthor(post.profiles || null)
-    setLikes(post.likes_count || 0)
+    setLikes(post.likes?.[0]?.count ?? post.likes_count ?? 0)
+    setComments(post.comments?.[0]?.count ?? 0)
     Promise.all([
-      supabase.from('likes').select('user_id', { count: 'exact', head: true }).eq('post_id', post.id),
-      supabase.from('comments').select('id', { count: 'exact', head: true }).eq('post_id', post.id),
-      supabase.from('likes').select('user_id').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle()
-    ]).then(([l, c, me]) => {
-      if (l.count !== null) setLikes(l.count)
-      setComments(c.count || 0)
+      supabase.from('likes').select('user_id').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle(),
+      supabase.from('saves').select('post_id').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle()
+    ]).then(([me, s]) => {
       setLiked(!!me.data)
+      setSaved(!!s.data)
     })
   }, [post.id])
 
@@ -37,6 +40,22 @@ export default function PostCard({ post, onDeleted }) {
       setLikes(l => l + 1)
       setLiked(true)
     }
+  }
+
+  async function toggleSave() {
+    if (saved) {
+      await supabase.from('saves').delete().eq('post_id', post.id).eq('user_id', session.user.id)
+      setSaved(false)
+    } else {
+      await supabase.from('saves').insert({ post_id: post.id, user_id: session.user.id })
+      setSaved(true)
+    }
+  }
+
+  async function sendReport() {
+    await supabase.from('reports').insert({ post_id: post.id, reporter_id: session.user.id, reason: reason.trim() })
+    setReported(true)
+    setReporting(false)
   }
 
   async function deletePost() {
@@ -55,7 +74,7 @@ export default function PostCard({ post, onDeleted }) {
         <div className="post-meta">
           <Link to={`/u/${author?.apelido}`} className="author">u/{author?.apelido}</Link>
           <div className="comm">
-            <Link to="/comunidades" className="comm-name">{post.communities?.name}</Link>
+            <Link to={`/c/${post.communities?.slug}`} className="comm-name">{post.communities?.name}</Link>
             <span className="time"> · {timeAgo(post.created_at)}</span>
           </div>
         </div>
@@ -77,9 +96,21 @@ export default function PostCard({ post, onDeleted }) {
         <Link to={`/post/${post.id}`} className="action">
           <Icon name="comment" size={15} /> <span>{compact(comments)}</span>
         </Link>
-        <button className="action" style={{ marginLeft: 'auto' }}>
-          <Icon name="bookmark" size={15} />
+        <button className={`action ${saved ? 'liked' : ''}`} title="Salvar" onClick={toggleSave}>
+          <Icon name="bookmark" size={15} filled={saved} />
         </button>
+        <span className="action report" style={{ marginLeft: 'auto' }}>
+          <button className="action" title="Denunciar" onClick={() => setReporting(o => !o)}>
+            <Icon name="flag" size={15} />
+          </button>
+          {reporting && !reported && (
+            <span className="report-pop">
+              <input placeholder="Motivo (opcional)" value={reason} onChange={e => setReason(e.target.value)} />
+              <button className="btn btn-primary report-btn" onClick={sendReport}>Denunciar</button>
+            </span>
+          )}
+          {reported && <span className="report-ok">Denúncia enviada. Obrigada.</span>}
+        </span>
       </div>
     </article>
   )

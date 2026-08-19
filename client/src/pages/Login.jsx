@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
+import { ptError } from '../lib/errors.js'
 import logo from '../assets/lilas-logo.svg'
 
 export default function Login() {
@@ -29,7 +30,7 @@ export default function Login() {
         password
       })
       setLoading(false)
-      if (error) { setError(error.message); return }
+      if (error) { setError(ptError(error)); return }
       await refreshProfile()
       navigate('/')
     } else {
@@ -44,9 +45,20 @@ export default function Login() {
         options: { data: { apelido: apelido.trim().replace(/^@/, '') } }
       })
       setLoading(false)
-      if (error) { setError(error.message); return }
+      if (error) { setError(ptError(error)); return }
       setInfo('Conta criada! Confirme seu email pelo link enviado para entrar.')
     }
+  }
+
+  async function resetPassword() {
+    if (!email.trim()) { setError('Digite seu email para recuperar a senha.'); return }
+    setError('')
+    setInfo('')
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/redefinir-senha`
+    })
+    if (error) { setError(ptError(error)); return }
+    setInfo('Enviamos um link de redefinição para seu email.')
   }
 
   return (
@@ -87,6 +99,11 @@ export default function Login() {
         <button className="btn btn-primary btn-block" onClick={submit} disabled={loading}>
           {loading ? 'Aguarde...' : mode === 'entrar' ? 'Entrar' : 'Criar conta'}
         </button>
+        {mode === 'entrar' && (
+          <button className="hint" style={{ textAlign: 'center', marginTop: 12, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary, #7c5ce0)', textDecoration: 'underline' }} onClick={resetPassword}>
+            Esqueci minha senha
+          </button>
+        )}
         <p className="hint" style={{ textAlign: 'center', marginTop: 12 }}>
           Seus dados ficam privados; as comunidades só veem seu apelido.
         </p>

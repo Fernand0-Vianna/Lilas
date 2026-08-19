@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
 
@@ -6,6 +7,7 @@ export default function Communities() {
   const { session } = useAuth()
   const [communities, setCommunities] = useState([])
   const [joined, setJoined] = useState({})
+  const [query, setQuery] = useState('')
 
   useEffect(() => {
     Promise.all([
@@ -35,19 +37,24 @@ export default function Communities() {
     return String(n)
   }
 
+  const q = query.trim().toLowerCase()
+  const list = q
+    ? communities.filter(c => c.name.toLowerCase().includes(q) || (c.description || '').toLowerCase().includes(q))
+    : communities
+
   return (
     <div className="container" style={{ maxWidth: 760 }}>
       <div style={{ paddingTop: 24 }}>
         <div className="create-head"><h2>Comunidades</h2></div>
         <div className="search" style={{ maxWidth: '100%', marginBottom: 16 }}>
-          <input placeholder="Buscar comunidades..." />
+          <input placeholder="Buscar comunidades..." value={query} onChange={e => setQuery(e.target.value)} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {communities.map(c => (
+          {list.map(c => (
             <div key={c.id} className="card comm-card">
               <span className="banner">{c.name.replace('r/', '').slice(0, 1)}</span>
               <div style={{ flex: 1 }}>
-                <h4>{c.name}</h4>
+                <Link to={`/c/${c.slug}`}><h4>{c.name}</h4></Link>
                 <div className="comm-meta">{fmt(c.members)} membros · {c.category}</div>
                 <p>{c.description}</p>
               </div>
@@ -56,6 +63,7 @@ export default function Communities() {
               </button>
             </div>
           ))}
+          {list.length === 0 && <p style={{ color: 'var(--muted)', textAlign: 'center', padding: 24 }}>Nenhuma comunidade encontrada.</p>}
         </div>
       </div>
     </div>
