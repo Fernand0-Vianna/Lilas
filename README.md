@@ -6,7 +6,7 @@
 
 **Rede social de apoio para o Agosto Lilas.** Um espaço seguro para mulheres compartilharem histórias, encontrarem apoio e acessarem informações sobre combate à violência contra a mulher.
 
-🔗 **Deploy:** [lilas-341.netlify.app](https://lilas-341.netlify.app)
+🔗 **Deploy:** [https://alilas.netlify.app/](https://alilas.netlify.app/)
 
 ---
 
