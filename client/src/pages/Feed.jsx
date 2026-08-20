@@ -4,6 +4,12 @@ import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
 import PostCard from '../components/PostCard.jsx'
 
+function hotScore(post) {
+  const score = post.likes?.[0]?.vote ?? 0
+  const order = Math.log10(Math.max(Math.abs(score), 1)) * Math.sign(score)
+  return order + (new Date(post.created_at).getTime() / 1000) / 45000
+}
+
 function useFeed(q) {
   const [posts, setPosts] = useState([])
   const [communities, setCommunities] = useState([])
@@ -13,9 +19,9 @@ function useFeed(q) {
     setLoading(true)
     let query = supabase
       .from('posts')
-      .select('*, profiles(apelido, avatar_url), communities(slug, name), likes(count), comments(count)')
+      .select('*, profiles(apelido, avatar_url), communities(slug, name), likes(vote), comments(count)')
       .order('created_at', { ascending: false })
-      .limit(30)
+      .limit(50)
     if (q) query = query.ilike('title', `%${q}%`)
     Promise.all([
       query,
@@ -35,11 +41,12 @@ export default function Feed() {
   const q = params.get('q') || ''
   const { posts, communities, loading, removePost } = useFeed(q)
   const { profile } = useAuth()
-  const [tab, setTab] = useState('voce')
+  const [tab, setTab] = useState('hot')
 
   const sorted = [...posts]
-  if (tab === 'alta') sorted.sort((a, b) => (b.likes?.[0]?.count || 0) - (a.likes?.[0]?.count || 0))
-  if (tab === 'novo') sorted.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+  if (tab === 'top') sorted.sort((a, b) => (b.likes?.[0]?.vote || 0) - (a.likes?.[0]?.vote || 0))
+  if (tab === 'new') sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  if (tab === 'hot') sorted.sort((a, b) => hotScore(b) - hotScore(a))
 
   return (
     <div className="container">
@@ -57,9 +64,9 @@ export default function Feed() {
         <main className="main">
           {q && <h2 style={{ fontSize: 18, margin: '16px 0' }}>Resultados para "{q}"</h2>}
           <div className="feed-tabs">
-            <button className={tab === 'voce' ? 'active' : ''} onClick={() => setTab('voce')}>Para você</button>
-            <button className={tab === 'novo' ? 'active' : ''} onClick={() => setTab('novo')}>Novo</button>
-            <button className={tab === 'alta' ? 'active' : ''} onClick={() => setTab('alta')}>Em alta</button>
+            <button className={tab === 'hot' ? 'active' : ''} onClick={() => setTab('hot')}>Em alta</button>
+            <button className={tab === 'new' ? 'active' : ''} onClick={() => setTab('new')}>Novo</button>
+            <button className={tab === 'top' ? 'active' : ''} onClick={() => setTab('top')}>Mais votado</button>
           </div>
           {loading ? <p style={{ color: 'var(--muted)' }}>Carregando...</p> :
             sorted.map(p => <PostCard key={p.id} post={p} onDeleted={() => removePost(p.id)} />)}

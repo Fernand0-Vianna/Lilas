@@ -1,6 +1,8 @@
 export function compact(n) {
-  if (n >= 1000000) return (n / 1000000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mi'
-  if (n >= 1000) return (n / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mil'
+  const abs = Math.abs(n)
+  const sign = n < 0 ? '-' : ''
+  if (abs >= 1000000) return sign + (abs / 1000000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mi'
+  if (abs >= 1000) return sign + (abs / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mil'
   return String(n)
 }
 

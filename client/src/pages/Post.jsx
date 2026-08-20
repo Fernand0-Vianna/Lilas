@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
 import PostCard from '../components/PostCard.jsx'
+import { compact } from '../lib/format.js'
 import Icon from '../components/Icons.jsx'
 
 function ReportComment({ commentId }) {
@@ -24,6 +25,33 @@ function ReportComment({ commentId }) {
   )
 }
 
+function CommentVote({ comment }) {
+  const { session } = useAuth()
+  const [vote, setVote] = useState(comment.vote ?? 0)
+  const [score, setScore] = useState(comment.comment_votes?.[0]?.vote ?? 0)
+
+  async function cast(v) {
+    if (vote === v) v = 0
+    const prev = vote
+    setVote(v)
+    const { data } = await supabase.rpc('vote_comment', { p_comment_id: comment.id, p_vote: v })
+    if (data != null) setScore(data)
+    else setVote(prev)
+  }
+
+  return (
+    <div className="vote-col comment-votes">
+      <button className={`vote-btn up ${vote === 1 ? 'on' : ''}`} onClick={() => cast(1)} title="Votar a favor">
+        <Icon name="up" size={13} />
+      </button>
+      <span className={`score ${vote === 1 ? 'up' : vote === -1 ? 'down' : ''}`}>{compact(score)}</span>
+      <button className={`vote-btn down ${vote === -1 ? 'on' : ''}`} onClick={() => cast(-1)} title="Votar contra">
+        <Icon name="down" size={13} />
+      </button>
+    </div>
+  )
+}
+
 export default function Post() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -37,16 +65,23 @@ export default function Post() {
     Promise.all([
       supabase
         .from('posts')
-        .select('*, profiles(apelido), communities(slug, name), likes(count), comments(count)')
+        .select('*, profiles(apelido), communities(slug, name), likes(vote), comments(count)')
         .eq('id', id)
         .single(),
-      supabase.from('comments').select('*, profiles(apelido)').eq('post_id', id).order('created_at')
-    ]).then(([p, c]) => {
+      supabase.from('comments')
+        .select('*, profiles(apelido), comment_votes(vote)')
+        .eq('post_id', id)
+        .order('created_at')
+    ]).then(async ([p, c]) => {
       const data = p.data
-      if (data) {
-        setPost(data)
+      if (data) setPost(data)
+      const list = c.data || []
+      if (session && list.length) {
+        const my = await supabase.from('comment_votes').select('comment_id, vote').in('comment_id', list.map(x => x.id)).eq('user_id', session.user.id)
+        const map = Object.fromEntries((my.data || []).map(m => [m.comment_id, m.vote]))
+        list.forEach(x => { x.vote = map[x.id] || 0 })
       }
-      setComments(c.data || [])
+      setComments(list)
       setLoading(false)
     })
   }, [id])
@@ -90,16 +125,19 @@ export default function Post() {
             <button className="btn btn-primary" onClick={addComment}>Comentar</button>
           </div>
           {comments.map(c => (
-            <div key={c.id} className="comment">
-              <span className="avatar">{(c.profiles?.apelido || '?')[0].toUpperCase()}</span>
-              <div style={{ flex: 1 }}>
-                <div className="c-meta">u/{c.profiles?.apelido}</div>
-                <div className="c-body">{c.body}</div>
+            <div key={c.id} className="comment-row">
+              <CommentVote comment={c} />
+              <div className="comment">
+                <span className="avatar">{(c.profiles?.apelido || '?')[0].toUpperCase()}</span>
+                <div style={{ flex: 1 }}>
+                  <div className="c-meta">u/{c.profiles?.apelido}</div>
+                  <div className="c-body">{c.body}</div>
+                </div>
+                <ReportComment commentId={c.id} />
+                {(profile?.is_admin || c.author_id === session.user.id) && (
+                  <button className="action" style={{ color: 'var(--danger, #c0392b)' }} onClick={() => deleteComment(c.id)}>🗑</button>
+                )}
               </div>
-              <ReportComment commentId={c.id} />
-              {(profile?.is_admin || c.author_id === session.user.id) && (
-                <button className="action" style={{ color: 'var(--danger, #c0392b)' }} onClick={() => deleteComment(c.id)}>🗑</button>
-              )}
             </div>
           ))}
         </div>

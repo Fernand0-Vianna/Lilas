@@ -21,7 +21,7 @@ export default function Community() {
       if (!data) { setNotFound(true); setLoading(false); return }
       setCommunity(data)
       const [postsR, member] = await Promise.all([
-        supabase.from('posts').select('*, profiles(apelido, avatar_url), communities(slug, name), likes(count), comments(count)')
+        supabase.from('posts').select('*, profiles(apelido, avatar_url), communities(slug, name), likes(vote), comments(count)')
           .eq('community_id', data.id).order('created_at', { ascending: false }),
         supabase.from('community_members').select('community_id').eq('community_id', data.id).eq('user_id', session.user.id).maybeSingle()
       ])

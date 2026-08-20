@@ -8,8 +8,10 @@ export default function Create() {
   const navigate = useNavigate()
   const [communities, setCommunities] = useState([])
   const [community, setCommunity] = useState('')
+  const [type, setType] = useState('text')
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
+  const [imageUrl, setImageUrl] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -24,12 +26,14 @@ export default function Create() {
     setError('')
     if (!title.trim()) { setError('Dê um título à publicação.'); return }
     if (!community) { setError('Escolha uma comunidade.'); return }
+    if (type === 'image' && !imageUrl.trim()) { setError('Cole a URL da imagem.'); return }
     setLoading(true)
     const { error } = await supabase.from('posts').insert({
       author_id: session.user.id,
       community_id: community,
       title: title.trim(),
-      body: body.trim()
+      body: type === 'image' ? '' : body.trim(),
+      image_url: type === 'image' ? imageUrl.trim() : ''
     })
     setLoading(false)
     if (error) { setError(error.message); return }
@@ -57,12 +61,22 @@ export default function Create() {
             ))}
           </div>
           {error && <div className="error">{error}</div>}
+          <div className="feed-tabs" style={{ marginBottom: 16 }}>
+            <button className={type === 'text' ? 'active' : ''} onClick={() => setType('text')}>Texto</button>
+            <button className={type === 'image' ? 'active' : ''} onClick={() => setType('image')}>Imagem</button>
+          </div>
           <div className="field">
             <input placeholder="Título" value={title} onChange={e => setTitle(e.target.value)} />
           </div>
-          <div className="field">
-            <textarea rows={6} placeholder="Compartilhe algo inspirador..." value={body} onChange={e => setBody(e.target.value)} style={{ padding: '11px 14px', border: '1.5px solid var(--border)', borderRadius: 10, outline: 'none', fontFamily: 'inherit', fontSize: 14 }} />
-          </div>
+          {type === 'text' ? (
+            <div className="field">
+              <textarea rows={6} placeholder="Compartilhe algo inspirador..." value={body} onChange={e => setBody(e.target.value)} style={{ padding: '11px 14px', border: '1.5px solid var(--border)', borderRadius: 10, outline: 'none', fontFamily: 'inherit', fontSize: 14 }} />
+            </div>
+          ) : (
+            <div className="field">
+              <input placeholder="URL da imagem (https://...)" value={imageUrl} onChange={e => setImageUrl(e.target.value)} />
+            </div>
+          )}
           <p className="hint">Sua publicação pode salvar vidas.</p>
         </div>
       </div>

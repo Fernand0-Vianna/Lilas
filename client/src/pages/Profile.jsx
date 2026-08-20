@@ -55,10 +55,13 @@ export default function Profile() {
       setPosts(list)
       setFollowing(!!followR.data)
       const ids = list.map(p => p.id)
+      const karma = ids.length
+        ? supabase.from('likes').select('vote').in('post_id', ids).then(r => (r.data || []).reduce((s, l) => s + (l.vote || 0), 0))
+        : 0
       const tally = async (table) => ids.length
         ? supabase.from(table).select('id', { count: 'exact', head: true }).in('post_id', ids).then(r => r.count || 0)
         : 0
-      const [likes, comments] = await Promise.all([tally('likes'), tally('comments')])
+      const [likes, comments] = await Promise.all([karma, tally('comments')])
       setStats({ posts: list.length, likes, comments, followers: followersR.count || 0, following: followingR.count || 0 })
       setLoading(false)
     })
@@ -118,7 +121,7 @@ export default function Profile() {
   useEffect(() => {
     if (tab !== 'saves') return
     supabase.from('saves')
-      .select('post_id, posts(*, profiles(apelido, avatar_url), communities(slug, name), likes(count), comments(count))')
+      .select('post_id, posts(*, profiles(apelido, avatar_url), communities(slug, name), likes(vote), comments(count))')
       .eq('user_id', session.user.id)
       .order('created_at', { ascending: false })
       .then(({ data }) => setSavedPosts((data || []).map(s => s.posts).filter(Boolean)))
@@ -182,7 +185,7 @@ export default function Profile() {
       <div className="container profile-body">
         <div className="profile-stats">
           <div><b>{compact(stats.posts)}</b><span>Posts</span></div>
-          <div><b>{compact(stats.likes)}</b><span>Curtidas</span></div>
+          <div><b>{compact(stats.likes)}</b><span>Karma</span></div>
           <div><b>{compact(stats.comments)}</b><span>Comentários</span></div>
           <div><b>{compact(stats.followers)}</b><span>Seguidores</span></div>
           <div className="stat-following"><b>{compact(stats.following)}</b><span>Seguindo</span></div>
