@@ -59,6 +59,8 @@ export default function Post() {
   const [post, setPost] = useState(null)
   const [comments, setComments] = useState([])
   const [body, setBody] = useState('')
+  const [replyTo, setReplyTo] = useState(null)
+  const [replyBody, setReplyBody] = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -86,6 +88,13 @@ export default function Post() {
     })
   }, [id])
 
+  function descendants(parentId) {
+    const out = []
+    const walk = pid => comments.filter(c => c.parent_id === pid).forEach(c => { out.push(c); walk(c.id) })
+    walk(parentId)
+    return out
+  }
+
   async function addComment() {
     if (!body.trim()) return
     const { data, error } = await supabase
@@ -98,14 +107,51 @@ export default function Post() {
     setBody('')
   }
 
+  async function sendReply() {
+    if (!replyBody.trim()) return
+    const { data, error } = await supabase
+      .from('comments')
+      .insert({ post_id: id, author_id: session.user.id, body: replyBody.trim(), parent_id: replyTo })
+      .select('*, profiles(apelido)')
+      .single()
+    if (error) return
+    setComments(c => [...c, data])
+    setReplyBody('')
+    setReplyTo(null)
+  }
+
   async function deleteComment(commentId) {
-    if (!window.confirm('Excluir este comentário?')) return
+    if (!window.confirm('Excluir este comentário? Respostas dele também serão excluídas.')) return
     await supabase.from('comments').delete().eq('id', commentId)
-    setComments(c => c.filter(x => x.id !== commentId))
+    const ids = new Set([commentId, ...descendants(commentId).map(c => c.id)])
+    setComments(cs => cs.filter(x => !ids.has(x.id)))
   }
 
   if (loading) return <div className="container" style={{ paddingTop: 24 }}>Carregando...</div>
   if (!post) return <div className="container" style={{ paddingTop: 24 }}>Post não encontrado.</div>
+
+  // lista plana -> linhas em ordem de thread (DFS), profundidade limitada no recuo
+  const byParent = {}
+  comments.forEach(c => { (byParent[c.parent_id || 'root'] ||= []).push(c) })
+  const rows = []
+  const walk = (pid, depth) => (byParent[pid] || []).forEach(c => { rows.push({ c, depth }); walk(c.id, depth + 1) })
+  walk('root', 0)
+
+  const replyForm = (onSend, value, setValue, onClose) => (
+    <div className="compose-row" style={{ marginTop: 8 }}>
+      <textarea
+        className="field"
+        rows={2}
+        style={{ padding: '11px 14px', border: '1.5px solid var(--border)', borderRadius: 10, outline: 'none' }}
+        placeholder="Compartilhe apoio..."
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        autoFocus
+      />
+      <button className="btn btn-primary" onClick={onSend}>Responder</button>
+      {onClose && <button className="btn btn-outline" onClick={onClose}>Cancelar</button>}
+    </div>
+  )
 
   return (
     <div className="container" style={{ maxWidth: 760 }}>
@@ -113,25 +159,23 @@ export default function Post() {
         <PostCard post={post} onDeleted={() => navigate('/')} />
         <div className="card" style={{ marginTop: 16 }}>
           <h3 style={{ fontSize: 16, marginBottom: 12 }}>Comentários</h3>
-          <div className="compose-row">
-            <textarea
-              className="field"
-              rows={2}
-              style={{ padding: '11px 14px', border: '1.5px solid var(--border)', borderRadius: 10, outline: 'none' }}
-              placeholder="Compartilhe apoio..."
-              value={body}
-              onChange={e => setBody(e.target.value)}
-            />
-            <button className="btn btn-primary" onClick={addComment}>Comentar</button>
-          </div>
-          {comments.map(c => (
-            <div key={c.id} className="comment-row">
+          {replyForm(addComment, body, setBody)}
+          {rows.map(({ c, depth }) => (
+            <div key={c.id} className="comment-row" style={depth ? { marginLeft: Math.min(depth, 6) * 16 } : undefined}>
               <CommentVote comment={c} />
               <div className="comment">
                 <span className="avatar">{(c.profiles?.apelido || '?')[0].toUpperCase()}</span>
                 <div style={{ flex: 1 }}>
                   <div className="c-meta">u/{c.profiles?.apelido}</div>
                   <div className="c-body">{c.body}</div>
+                  <button
+                    className="action"
+                    style={{ fontSize: 12 }}
+                    onClick={() => { setReplyTo(replyTo === c.id ? null : c.id); setReplyBody('') }}
+                  >
+                    <Icon name="comment" size={12} /> Responder
+                  </button>
+                  {replyTo === c.id && replyForm(sendReply, replyBody, setReplyBody, () => setReplyTo(null))}
                 </div>
                 <ReportComment commentId={c.id} />
                 {(profile?.is_admin || c.author_id === session.user.id) && (
@@ -140,6 +184,9 @@ export default function Post() {
               </div>
             </div>
           ))}
+          {!loading && rows.length === 0 && (
+            <p style={{ color: 'var(--muted)', fontSize: 14 }}>Nenhum comentário ainda.</p>
+          )}
         </div>
       </div>
     </div>

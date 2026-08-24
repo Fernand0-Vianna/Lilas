@@ -3,6 +3,27 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
 
+function fileToWebP(file, quality = 0.8, maxSize = 1600) {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      const scale = Math.min(1, maxSize / Math.max(img.naturalWidth, img.naturalHeight))
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.round(img.naturalWidth * scale)
+      canvas.height = Math.round(img.naturalHeight * scale)
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+      canvas.toBlob(b => {
+        URL.revokeObjectURL(url)
+        if (b) resolve(b)
+        else reject(new Error('Não foi possível converter a imagem.'))
+      }, 'image/webp', quality)
+    }
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Arquivo inválido.')) }
+    img.src = url
+  })
+}
+
 export default function Create() {
   const { session } = useAuth()
   const navigate = useNavigate()
@@ -11,7 +32,8 @@ export default function Create() {
   const [type, setType] = useState('text')
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
-  const [imageUrl, setImageUrl] = useState('')
+  const [file, setFile] = useState(null)
+  const [preview, setPreview] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -22,22 +44,42 @@ export default function Create() {
     })
   }, [])
 
+  function onFile(e) {
+    const f = e.target.files?.[0]
+    setFile(f || null)
+    setPreview(f ? URL.createObjectURL(f) : '')
+  }
+
   async function publish() {
     setError('')
     if (!title.trim()) { setError('Dê um título à publicação.'); return }
     if (!community) { setError('Escolha uma comunidade.'); return }
-    if (type === 'image' && !imageUrl.trim()) { setError('Cole a URL da imagem.'); return }
+    if (type === 'image' && !file) { setError('Escolha uma imagem do seu dispositivo.'); return }
     setLoading(true)
-    const { error } = await supabase.from('posts').insert({
-      author_id: session.user.id,
-      community_id: community,
-      title: title.trim(),
-      body: type === 'image' ? '' : body.trim(),
-      image_url: type === 'image' ? imageUrl.trim() : ''
-    })
-    setLoading(false)
-    if (error) { setError(error.message); return }
-    navigate('/')
+    try {
+      let imageUrl = ''
+      if (type === 'image') {
+        const webp = await fileToWebP(file)
+        const { data, error: upErr } = await supabase.storage
+          .from('posts')
+          .upload(`${session.user.id}/${Date.now()}.webp`, webp, { contentType: 'image/webp' })
+        if (upErr) throw upErr
+        imageUrl = supabase.storage.from('posts').getPublicUrl(data.path).data.publicUrl
+      }
+      const { error } = await supabase.from('posts').insert({
+        author_id: session.user.id,
+        community_id: community,
+        title: title.trim(),
+        body: type === 'image' ? '' : body.trim(),
+        image_url: imageUrl
+      })
+      if (error) throw error
+      navigate('/')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -74,7 +116,9 @@ export default function Create() {
             </div>
           ) : (
             <div className="field">
-              <input placeholder="URL da imagem (https://...)" value={imageUrl} onChange={e => setImageUrl(e.target.value)} />
+              <label className="hint" htmlFor="post-image">Imagem PNG/JPG do dispositivo (convertida para WebP):</label>
+              <input id="post-image" type="file" accept="image/png,image/jpeg,image/webp" onChange={onFile} />
+              {preview && <img src={preview} alt="" className="post-img" style={{ marginTop: 10 }} />}
             </div>
           )}
           <p className="hint">Sua publicação pode salvar vidas.</p>

@@ -81,6 +81,7 @@ Comentários em posts.
 |-------|------|-----------|
 | `id` | `uuid` | Chave primária |
 | `post_id` | `uuid` | Referência a `posts(id)` |
+| `parent_id` | `uuid` | Referência a `comments(id)` (opcional; nulo = comentário de nível superior) |
 | `author_id` | `uuid` | Referência a `profiles(id)` |
 | `body` | `text` | Texto do comentário |
 | `created_at` | `timestamptz` | Data de criação |
