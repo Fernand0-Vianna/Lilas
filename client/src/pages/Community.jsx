@@ -157,23 +157,34 @@ export default function Community() {
   return (
     <div className="container" style={{ maxWidth: 760 }}>
       <div style={{ paddingTop: 24 }}>
-        <div className="card comm-hero">
-          <span className={`banner${community.banner_url ? ' banner--img' : ''}`} style={community.banner_url ? { backgroundImage: `url(${community.banner_url})` } : undefined}>{community.name.replace('r/', '').slice(0, 1)}</span>
-          <div style={{ flex: 1 }}>
-            <h2>{community.name}</h2>
-            <div className="comm-meta">{compact(community.members)} membros · {community.category}</div>
-            {community.description && <p style={{ marginTop: 8, color: 'var(--muted)', fontSize: 14 }}>{community.description}</p>}
+        <div className="comm-banner-wrap">
+          <div className="comm-banner" style={community.banner_url ? { backgroundImage: `url(${community.banner_url})` } : undefined}>
+            {!community.banner_url && <span className="comm-banner-letter">{community.name.replace('r/', '').slice(0, 1)}</span>}
+          </div>
+          <div className="comm-banner-info">
+            <span className="comm-banner-icon" style={community.banner_url ? { backgroundImage: `url(${community.banner_url})` } : undefined}>
+              {!community.banner_url && community.name.replace('r/', '').slice(0, 1)}
+            </span>
+            <div style={{ flex: 1 }}>
+              <h2 style={{ fontSize: 22, fontWeight: 800 }}>{community.name}</h2>
+              <div className="comm-meta">{compact(community.members)} membros · {community.category}</div>
+            </div>
+            <button className={`btn ${joined ? 'btn-outline' : 'btn-primary'}`} onClick={toggle}>
+              {joined ? 'Sair' : 'Entrar'}
+            </button>
+          </div>
+        </div>
+        {(community.description || community.rules) && (
+          <div className="card" style={{ marginTop: 12 }}>
+            {community.description && <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: community.rules ? 10 : 0 }}>{community.description}</p>}
             {community.rules && (
-              <details style={{ marginTop: 10 }}>
+              <details>
                 <summary style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary-dark)', cursor: 'pointer' }}>📜 Regras</summary>
                 <p style={{ marginTop: 6, color: 'var(--muted)', fontSize: 13, whiteSpace: 'pre-wrap' }}>{community.rules}</p>
               </details>
             )}
           </div>
-          <button className={`btn ${joined ? 'btn-outline' : 'btn-primary'}`} onClick={toggle}>
-            {joined ? 'Sair' : 'Entrar'}
-          </button>
-        </div>
+        )}
         {(isMod || profile?.is_admin) && (
           <div style={{ marginBottom: 16, textAlign: 'right' }}>
             <button className="btn btn-ghost" onClick={() => setShowModPanel(o => !o)}>
