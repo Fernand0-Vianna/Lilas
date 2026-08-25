@@ -15,10 +15,10 @@ import Icon from './components/Icons.jsx'
 import { useState } from 'react'
 
 function Topbar() {
-  const { profile, signOut } = useAuth()
+  const { profile } = useAuth()
   const [q, setQ] = useState('')
-  const [menu, setMenu] = useState(false)
   const navigate = useNavigate()
+
   return (
     <header className="topbar">
       <div className="topbar-inner">
@@ -27,7 +27,14 @@ function Topbar() {
           Lilás
         </Link>
         <div className="search">
-          <input placeholder="Buscar no Lilás..." value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && q.trim()) navigate(`/?q=${encodeURIComponent(q.trim())}`) }} />
+          <input 
+            placeholder="Buscar no Lilás..." 
+            value={q} 
+            onChange={e => setQ(e.target.value)} 
+            onKeyDown={e => { 
+              if (e.key === 'Enter' && q.trim()) navigate(`/?q=${encodeURIComponent(q.trim())}`) 
+            }} 
+          />
         </div>
         <nav className="topbar-nav">
           <NavLink to="/" end>Feed</NavLink>
@@ -35,23 +42,16 @@ function Topbar() {
           {profile?.is_admin && <NavLink to="/denuncias">Denúncias</NavLink>}
           <Link to="/criar" className="btn btn-primary">+ Criar</Link>
           <button className="topbar-bell" title="Alertas"><Icon name="bell" size={18} /></button>
+          
+          {/* Avatar redirecionando direto para a página de perfil */}
           <div className="avatar-menu">
-            <button className="avatar-link" title={profile?.apelido} onClick={() => setMenu(m => !m)}>
+            <button 
+              className="avatar-link" 
+              title={profile?.apelido} 
+              onClick={() => navigate('/perfil')}
+            >
               <span className="avatar">{(profile?.apelido || '?')[0].toUpperCase()}</span>
             </button>
-            {menu && (
-              <div className="avatar-dropdown">
-                <Link to={`/u/${profile?.apelido || ''}`} onClick={() => setMenu(false)}>
-                  <Icon name="person" size={15} /> Meu perfil
-                </Link>
-                <Link to="/perfil?editar=1" onClick={() => setMenu(false)}>
-                  <Icon name="pen" size={15} /> Editar perfil
-                </Link>
-                <button onClick={async () => { setMenu(false); await signOut(); navigate('/login') }}>
-                  Sair da conta
-                </button>
-              </div>
-            )}
           </div>
         </nav>
       </div>
