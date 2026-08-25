@@ -52,7 +52,7 @@ export default function Communities() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {list.map(c => (
             <div key={c.id} className="card comm-card">
-              <span className="banner">{c.name.replace('r/', '').slice(0, 1)}</span>
+              <span className={`banner${c.banner_url ? ' banner--img' : ''}`} style={c.banner_url ? { backgroundImage: `url(${c.banner_url})` } : undefined}>{c.name.replace('r/', '').slice(0, 1)}</span>
               <div style={{ flex: 1 }}>
                 <Link to={`/c/${c.slug}`}><h4>{c.name}</h4></Link>
                 <div className="comm-meta">{fmt(c.members)} membros · {c.category}</div>

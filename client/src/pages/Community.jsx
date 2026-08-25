@@ -158,7 +158,7 @@ export default function Community() {
     <div className="container" style={{ maxWidth: 760 }}>
       <div style={{ paddingTop: 24 }}>
         <div className="card comm-hero">
-          <span className="banner">{community.name.replace('r/', '').slice(0, 1)}</span>
+          <span className={`banner${community.banner_url ? ' banner--img' : ''}`} style={community.banner_url ? { backgroundImage: `url(${community.banner_url})` } : undefined}>{community.name.replace('r/', '').slice(0, 1)}</span>
           <div style={{ flex: 1 }}>
             <h2>{community.name}</h2>
             <div className="comm-meta">{compact(community.members)} membros · {community.category}</div>

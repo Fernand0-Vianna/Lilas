@@ -55,7 +55,7 @@ export default function Feed() {
           <h3>Comunidades</h3>
           {communities.map(c => (
             <Link key={c.id} to={`/c/${c.slug}`} className="rail-item">
-              <span className="r">{c.name.replace('r/', '').slice(0, 1)}</span>
+              <span className={`r${c.banner_url ? ' r--img' : ''}`} style={c.banner_url ? { backgroundImage: `url(${c.banner_url})` } : undefined}>{c.name.replace('r/', '').slice(0, 1)}</span>
               {c.name}
             </Link>
           ))}
