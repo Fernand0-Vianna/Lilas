@@ -64,6 +64,22 @@ Histórico de mudanças baseado nas tasks semanais do projeto.
 
 ---
 
+## 2026-08-24
+
+### Feito
+
+- Task `planomode/task_diaria.md` implementada (features estilo Reddit):
+  - **Posts mais ricos**: tipos Link (card com favicon/domínio) e Enquete (opções em `poll_options`, votos em `poll_votes`, barras de percentual) + tags de contexto no post (`Dúvida`, `Conseguiu`, `História Real`, `Desabafo`, `Apoio`)
+  - **Karma completo**: função `karma_of(uuid)` soma votos de posts + comentários; perfil exibe via RPC
+  - **Anti-spam**: política RLS de `posts insert` — contas com menos de 24h publicam no máx. 5 posts/dia (admin livre)
+  - **Mods de comunidade**: tabelas `community_mods` e `community_bans`; coluna `rules` em `communities`; funções `is_admin()`/`is_mod_of(uuid)`; delete de post/comentário liberado para mod da comunidade; banido não consegue entrar; painel de moderação na página da comunidade (regras, nomear/remover mods — admin, bloquear/desbloquear usuárias)
+  - Política `communities update` aberta (`using(true)`) substituída por versão restrita a mods/admin
+- Migration aplicada no Supabase via Management API (`migrations/reddit_v2.sql`)
+- Itens 1 (votos) e 2 (comentários aninhados) já existiam no código
+- `vite build` passando
+
+---
+
 ## 2026-08-18/23:30
 
 <!-- Entrada pendente — aguardando detalhes da task noturna -->

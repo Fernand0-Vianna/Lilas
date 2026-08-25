@@ -5,7 +5,54 @@ import { useAuth } from '../lib/auth.jsx'
 import { compact, timeAgo } from '../lib/format.js'
 import Icon from './Icons.jsx'
 
-export default function PostCard({ post, onDeleted }) {
+function Poll({ post }) {
+  const { session } = useAuth()
+  const [counts, setCounts] = useState([])
+  const [mine, setMine] = useState(-1)
+
+  useEffect(() => {
+    const rows = post.poll_votes || []
+    const c = (post.poll_options || []).map((_, i) => rows.filter(r => r.option_idx === i).length)
+    setCounts(c)
+  }, [post.id])
+
+  useEffect(() => {
+    if (!post.poll_options) return
+    supabase.from('poll_votes').select('option_idx').eq('post_id', post.id).eq('user_id', session.user.id)
+      .maybeSingle().then(({ data }) => setMine(data?.option_idx ?? -1))
+  }, [post.id])
+
+  async function vote(i) {
+    if (mine === i) return
+    setMine(i)
+    setCounts(c => c.map((x, j) => (j === i ? x + 1 : x)))
+    const { error } = await supabase.from('poll_votes')
+      .upsert({ post_id: post.id, user_id: session.user.id, option_idx: i })
+    if (error) {
+      setMine(-1)
+      setCounts(c => c.map((x, j) => (j === i ? x - 1 : x)))
+    }
+  }
+
+  const total = counts.reduce((s, n) => s + n, 0)
+  return (
+    <div className="poll">
+      {(post.poll_options || []).map((opt, i) => {
+        const pct = total ? Math.round((counts[i] / total) * 100) : 0
+        return (
+          <button key={i} className={`poll-opt ${mine === i ? 'on' : ''}`} onClick={e => { e.preventDefault(); e.stopPropagation(); vote(i) }}>
+            <span className="poll-fill" style={{ width: `${pct}%` }} />
+            <span className="poll-label">{opt}</span>
+            <span className="poll-pct">{total ? `${pct}%` : ''}</span>
+          </button>
+        )
+      })}
+      <p className="hint">{compact(total)} voto{total === 1 ? '' : 's'}</p>
+    </div>
+  )
+}
+
+export default function PostCard({ post, onDeleted, canModerate }) {
   const { session, profile } = useAuth()
   const navigate = useNavigate()
   const [vote, setVote] = useState(0)
@@ -56,14 +103,18 @@ export default function PostCard({ post, onDeleted }) {
   }
 
   async function deletePost() {
-    const ok = window.confirm('Excluir esta publicação?')
+    const ok = window.confirm(canModerate && post.author_id !== session.user.id
+      ? 'Remover esta publicação como moderação?'
+      : 'Excluir esta publicação?')
     if (!ok) return
     await supabase.from('posts').delete().eq('id', post.id)
     if (onDeleted) onDeleted()
     else navigate('/')
   }
 
-  const canDelete = profile?.is_admin || post.author_id === session.user.id
+  let host = ''
+  try { host = post.link_url ? new URL(post.link_url).hostname.replace(/^www\./, '') : '' } catch { /* url inválida */ }
+  const canDelete = profile?.is_admin || post.author_id === session.user.id || !!canModerate
   return (
     <article className="card post-card">
       <div className="vote-col">
@@ -86,16 +137,35 @@ export default function PostCard({ post, onDeleted }) {
             </div>
           </div>
           {canDelete && (
-            <button className="post-more" title="Excluir publicação" onClick={deletePost}>
+            <button className="post-more" title={canModerate && post.author_id !== session.user.id ? 'Remover (moderação)' : 'Excluir publicação'} onClick={deletePost}>
               <Icon name="more" size={18} />
             </button>
           )}
         </div>
-        <Link to={`/post/${post.id}`} className="post-link">
-          <h3 className="post-title">{post.title}</h3>
-          {post.body && <p className="post-body">{post.body}</p>}
-          {post.image_url && <img src={post.image_url} alt="" className="post-img" />}
-        </Link>
+        {host ? (
+          <>
+            <h3 className="post-title">{post.title}</h3>
+            <a href={post.link_url} target="_blank" rel="noreferrer noopener" className="link-card">
+              <img src={`https://www.google.com/s2/favicons?domain=${host}&sz=32`} alt="" onError={e => { e.target.style.display = 'none' }} />
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span className="link-host">{host}</span>
+                <span className="link-url">{post.link_url}</span>
+              </span>
+              <Icon name="chevron-left" size={14} style={{ transform: 'rotate(180deg)', flexShrink: 0 }} />
+            </a>
+            {post.body && <p className="post-body">{post.body}</p>}
+          </>
+        ) : (
+          <Link to={`/post/${post.id}`} className="post-link">
+            <h3 className="post-title">
+              {post.tag && <span className="tag-chip">{post.tag}</span>}
+              {post.title}
+            </h3>
+            {post.body && <p className="post-body">{post.body}</p>}
+            {post.image_url && <img src={post.image_url} alt="" className="post-img" />}
+            {post.poll_options && <Poll post={post} />}
+          </Link>
+        )}
         <div className="post-actions">
           <Link to={`/post/${post.id}`} className="action">
             <Icon name="comment" size={15} /> <span>{compact(comments)} comentários</span>

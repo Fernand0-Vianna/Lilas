@@ -127,6 +127,39 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .report-btn { font-size: 12px; padding: 6px 10px; }
 .report-ok { font-size: 12px; color: var(--accent); margin-left: 6px; white-space: nowrap; }
 
+/* ---------- Tags, links e enquetes ---------- */
+.tag-chip {
+  display: inline-flex; align-items: center; vertical-align: middle;
+  background: var(--primary-soft); color: var(--primary-dark);
+  border-radius: 999px; padding: 2px 9px; margin-right: 8px;
+  font-size: 11px; font-weight: 700;
+}
+.tag-chip.danger { background: #fff0f4; color: #d6336c; }
+.tag-chip button { font-size: 13px; line-height: 1; color: inherit; }
+.link-card {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+  border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 12px;
+}
+.link-card:hover { border-color: var(--primary); }
+.link-card img { width: 20px; height: 20px; border-radius: 4px; flex-shrink: 0; }
+.link-host { display: block; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.link-url { display: block; font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.poll { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 12px; }
+.poll-opt {
+  position: relative; display: flex; align-items: center; gap: 8px;
+  border: 1.5px solid var(--border); border-radius: 10px;
+  padding: 10px 12px; text-align: left; overflow: hidden;
+}
+.poll-opt:hover { border-color: var(--primary); }
+.poll-opt.on { border-color: var(--primary); }
+.poll-fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--primary-soft); transition: width 0.3s; z-index: 0; }
+.poll-label, .poll-pct { position: relative; z-index: 1; font-size: 14px; font-weight: 500; }
+.poll-pct { margin-left: auto; font-weight: 700; color: var(--primary-dark); }
+
+/* ---------- Moderação ---------- */
+.mod-panel { border-left: 3px solid var(--primary); }
+.mod-panel input { width: 100%; }
+
 /* ---------- Feed tabs ---------- */
 .feed-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 0; }
 .feed-tabs button { padding: 10px 14px; font-weight: 500; font-size: 14px; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }

@@ -24,6 +24,8 @@ function fileToWebP(file, quality = 0.8, maxSize = 1600) {
   })
 }
 
+const TAGS = ['Dúvida', 'Conseguiu', 'História Real', 'Desabafo', 'Apoio']
+
 export default function Create() {
   const { session } = useAuth()
   const navigate = useNavigate()
@@ -34,6 +36,9 @@ export default function Create() {
   const [body, setBody] = useState('')
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState('')
+  const [tag, setTag] = useState('')
+  const [linkUrl, setLinkUrl] = useState('')
+  const [pollOptions, setPollOptions] = useState(['', ''])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -50,11 +55,20 @@ export default function Create() {
     setPreview(f ? URL.createObjectURL(f) : '')
   }
 
+  function setOption(i, v) {
+    setPollOptions(o => o.map((x, j) => (j === i ? v : x)))
+  }
+
   async function publish() {
     setError('')
     if (!title.trim()) { setError('Dê um título à publicação.'); return }
     if (!community) { setError('Escolha uma comunidade.'); return }
     if (type === 'image' && !file) { setError('Escolha uma imagem do seu dispositivo.'); return }
+    const options = pollOptions.map(o => o.trim()).filter(Boolean)
+    if (type === 'poll' && options.length < 2) { setError('A enquete precisa de ao menos 2 opções.'); return }
+    if (type === 'link') {
+      try { new URL(linkUrl) } catch { setError('Cole uma URL válida (comece com http).'); return }
+    }
     setLoading(true)
     try {
       let imageUrl = ''
@@ -70,8 +84,11 @@ export default function Create() {
         author_id: session.user.id,
         community_id: community,
         title: title.trim(),
-        body: type === 'image' ? '' : body.trim(),
-        image_url: imageUrl
+        body: type === 'image' || type === 'poll' ? '' : body.trim(),
+        image_url: imageUrl,
+        tag: tag || null,
+        link_url: type === 'link' ? linkUrl.trim() : null,
+        poll_options: type === 'poll' ? options : null
       })
       if (error) throw error
       navigate('/')
@@ -106,13 +123,41 @@ export default function Create() {
           <div className="feed-tabs" style={{ marginBottom: 16 }}>
             <button className={type === 'text' ? 'active' : ''} onClick={() => setType('text')}>Texto</button>
             <button className={type === 'image' ? 'active' : ''} onClick={() => setType('image')}>Imagem</button>
+            <button className={type === 'link' ? 'active' : ''} onClick={() => setType('link')}>Link</button>
+            <button className={type === 'poll' ? 'active' : ''} onClick={() => setType('poll')}>Enquete</button>
           </div>
           <div className="field">
             <input placeholder="Título" value={title} onChange={e => setTitle(e.target.value)} />
           </div>
-          {type === 'text' ? (
+          {type === 'text' || type === 'link' ? (
             <div className="field">
-              <textarea rows={6} placeholder="Compartilhe algo inspirador..." value={body} onChange={e => setBody(e.target.value)} style={{ padding: '11px 14px', border: '1.5px solid var(--border)', borderRadius: 10, outline: 'none', fontFamily: 'inherit', fontSize: 14 }} />
+              {type === 'link' && (
+                <input
+                  placeholder="https://..."
+                  value={linkUrl}
+                  onChange={e => setLinkUrl(e.target.value)}
+                  style={{ marginBottom: 10 }}
+                />
+              )}
+              <textarea rows={6} placeholder={type === 'link' ? 'Um pouco de contexto (opcional)...' : 'Compartilhe algo inspirador...'} value={body} onChange={e => setBody(e.target.value)} style={{ padding: '11px 14px', border: '1.5px solid var(--border)', borderRadius: 10, outline: 'none', fontFamily: 'inherit', fontSize: 14 }} />
+            </div>
+          ) : type === 'poll' ? (
+            <div className="field">
+              <label>Opções da enquete:</label>
+              {pollOptions.map((o, i) => (
+                <input
+                  key={i}
+                  placeholder={`Opção ${i + 1}`}
+                  value={o}
+                  onChange={e => setOption(i, e.target.value)}
+                  style={{ marginBottom: 8 }}
+                />
+              ))}
+              {pollOptions.length < 6 && (
+                <button className="btn btn-outline" style={{ marginTop: 4 }} onClick={() => setPollOptions(o => [...o, ''])}>
+                  + Opção
+                </button>
+              )}
             </div>
           ) : (
             <div className="field">
@@ -121,6 +166,16 @@ export default function Create() {
               {preview && <img src={preview} alt="" className="post-img" style={{ marginTop: 10 }} />}
             </div>
           )}
+          <div className="field">
+            <label>Tag (opcional)</label>
+            <div className="comm-select" style={{ margin: 0 }}>
+              {TAGS.map(t => (
+                <button key={t} type="button" className={`comm-chip ${tag === t ? 'active' : ''}`} onClick={() => setTag(tag === t ? '' : t)}>
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
           <p className="hint">Sua publicação pode salvar vidas.</p>
         </div>
       </div>
