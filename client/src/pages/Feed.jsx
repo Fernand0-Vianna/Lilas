@@ -83,14 +83,20 @@ export default function Feed() {
           <div className="card welcome">
             <span className="avatar big-av">{(profile?.apelido || '?')[0].toUpperCase()}</span>
             <h4>Bem-vinda, @{profile?.apelido}</h4>
-            <p>Encontre apoio e compartilhe sua história em segurança.</p>
+            <p>Encontre apoio e compartilhe sua história.</p>
             <Link to="/criar" className="btn btn-primary welcome-btn">+ Criar post</Link>
           </div>
-          <div className="card">
-            <h3 style={{ fontSize: 14, marginBottom: 8 }}>Ligue 180</h3>
-            <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
-              Central de Atendimento à Mulher — gratuito e 24h. Ligue 180. Sua publicação pode salvar vidas.
-            </p>
+          <div className="card side-info">
+            <h4>Lilás</h4>
+            <p>Rede social segura para enfrentamento à violência contra a mulher.</p>
+            <div className="side-meta">
+              <span><b>5</b> comunidades</span>
+              <span><b>180</b> Central de Atendimento</span>
+            </div>
+          </div>
+          <div className="card side-info">
+            <h4>Emergência</h4>
+            <p>Ligue <b>180</b> — Central de Atendimento à Mulher. Gratuito e 24h.</p>
           </div>
         </aside>
       </div>

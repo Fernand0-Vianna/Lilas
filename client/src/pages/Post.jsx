@@ -165,7 +165,12 @@ export default function Post() {
           <h3 style={{ fontSize: 16, marginBottom: 12 }}>Comentários</h3>
           {replyForm(addComment, body, setBody)}
           {rows.map(({ c, depth }) => (
-            <div key={c.id} className="comment-row" style={depth ? { marginLeft: Math.min(depth, 6) * 16 } : undefined}>
+            <div key={c.id} className="comment-row">
+              {depth > 0 && (
+                <div className="comment-thread">
+                  <div className="comment-line" />
+                </div>
+              )}
               <CommentVote comment={c} />
               <div className="comment">
                 <span className="avatar">{(c.profiles?.apelido || '?')[0].toUpperCase()}</span>
@@ -174,10 +179,10 @@ export default function Post() {
                   <div className="c-body">{c.body}</div>
                   <button
                     className="action"
-                    style={{ fontSize: 12 }}
+                    style={{ fontSize: 11 }}
                     onClick={() => { setReplyTo(replyTo === c.id ? null : c.id); setReplyBody('') }}
                   >
-                    <Icon name="comment" size={12} /> Responder
+                    <Icon name="comment" size={11} /> Responder
                   </button>
                   {replyTo === c.id && replyForm(sendReply, replyBody, setReplyBody, () => setReplyTo(null))}
                 </div>

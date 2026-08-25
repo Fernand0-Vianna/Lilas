@@ -119,11 +119,11 @@ export default function PostCard({ post, onDeleted, canModerate }) {
     <article className="card post-card">
       <div className="vote-col">
         <button className={`vote-btn up ${vote === 1 ? 'on' : ''}`} onClick={() => castVote(1)} title="Votar a favor">
-          <Icon name="up" size={16} />
+          <Icon name="up" size={14} />
         </button>
         <span className={`score ${vote === 1 ? 'up' : vote === -1 ? 'down' : ''}`}>{compact(score)}</span>
         <button className={`vote-btn down ${vote === -1 ? 'on' : ''}`} onClick={() => castVote(-1)} title="Votar contra">
-          <Icon name="down" size={16} />
+          <Icon name="down" size={14} />
         </button>
       </div>
       <div className="post-main">
@@ -131,14 +131,13 @@ export default function PostCard({ post, onDeleted, canModerate }) {
           <div className="post-meta">
             <div className="comm">
               <Link to={`/c/${post.communities?.slug}`} className="comm-name">{post.communities?.name}</Link>
-              <span className="time"> · postado por </span>
-              <Link to={`/u/${author?.apelido}`} className="author">u/{author?.apelido}</Link>
+              <span className="time"> · u/{author?.apelido}</span>
               <span className="time"> · {timeAgo(post.created_at)}</span>
             </div>
           </div>
           {canDelete && (
             <button className="post-more" title={canModerate && post.author_id !== session.user.id ? 'Remover (moderação)' : 'Excluir publicação'} onClick={deletePost}>
-              <Icon name="more" size={18} />
+              <Icon name="more" size={16} />
             </button>
           )}
         </div>
@@ -151,7 +150,7 @@ export default function PostCard({ post, onDeleted, canModerate }) {
                 <span className="link-host">{host}</span>
                 <span className="link-url">{post.link_url}</span>
               </span>
-              <Icon name="chevron-left" size={14} style={{ transform: 'rotate(180deg)', flexShrink: 0 }} />
+              <Icon name="chevron-left" size={12} style={{ transform: 'rotate(180deg)', flexShrink: 0 }} />
             </a>
             {post.body && <p className="post-body">{post.body}</p>}
           </>
@@ -168,22 +167,22 @@ export default function PostCard({ post, onDeleted, canModerate }) {
         )}
         <div className="post-actions">
           <Link to={`/post/${post.id}`} className="action">
-            <Icon name="comment" size={15} /> <span>{compact(comments)} comentários</span>
+            <Icon name="comment" size={14} /> <span>{compact(comments)}</span>
           </Link>
           <button className={`action ${saved ? 'liked' : ''}`} title="Salvar" onClick={toggleSave}>
-            <Icon name="bookmark" size={15} filled={saved} />
+            <Icon name="bookmark" size={14} filled={saved} />
           </button>
-          <span className="action report" style={{ marginLeft: 'auto' }}>
+          <span className="action report">
             <button className="action" title="Denunciar" onClick={() => setReporting(o => !o)}>
-              <Icon name="flag" size={15} />
+              <Icon name="flag" size={14} />
             </button>
             {reporting && !reported && (
               <span className="report-pop">
-                <input placeholder="Motivo (opcional)" value={reason} onChange={e => setReason(e.target.value)} />
-                <button className="btn btn-primary report-btn" onClick={sendReport}>Denunciar</button>
+                <input placeholder="Motivo" value={reason} onChange={e => setReason(e.target.value)} />
+                <button className="btn btn-primary report-btn" onClick={sendReport}>Enviar</button>
               </span>
             )}
-            {reported && <span className="report-ok">Denúncia enviada. Obrigada.</span>}
+            {reported && <span className="report-ok">Enviado.</span>}
           </span>
         </div>
       </div>

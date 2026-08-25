@@ -155,8 +155,8 @@ export default function Community() {
   if (notFound) return <div className="container" style={{ paddingTop: 24 }}>Comunidade não encontrada.</div>
 
   return (
-    <div className="container" style={{ maxWidth: 760 }}>
-      <div style={{ paddingTop: 24 }}>
+    <div className="container">
+      <div style={{ paddingTop: 16 }}>
         <div className="comm-banner-wrap">
           <div className="comm-banner" style={community.banner_url ? { backgroundImage: `url(${community.banner_url})` } : undefined}>
             {!community.banner_url && <span className="comm-banner-letter">{community.name.replace('r/', '').slice(0, 1)}</span>}
@@ -166,7 +166,7 @@ export default function Community() {
               {!community.banner_url && community.name.replace('r/', '').slice(0, 1)}
             </span>
             <div style={{ flex: 1 }}>
-              <h2 style={{ fontSize: 22, fontWeight: 800 }}>{community.name}</h2>
+              <h2 style={{ fontSize: 20, fontWeight: 800 }}>{community.name}</h2>
               <div className="comm-meta">{compact(community.members)} membros · {community.category}</div>
             </div>
             <button className={`btn ${joined ? 'btn-outline' : 'btn-primary'}`} onClick={toggle}>
@@ -174,39 +174,50 @@ export default function Community() {
             </button>
           </div>
         </div>
-        {(community.description || community.rules) && (
-          <div className="card" style={{ marginTop: 12 }}>
-            {community.description && <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: community.rules ? 10 : 0 }}>{community.description}</p>}
-            {community.rules && (
-              <details>
-                <summary style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary-dark)', cursor: 'pointer' }}>📜 Regras</summary>
-                <p style={{ marginTop: 6, color: 'var(--muted)', fontSize: 13, whiteSpace: 'pre-wrap' }}>{community.rules}</p>
-              </details>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 16, marginTop: 16, alignItems: 'start' }}>
+          <div>
+            {(isMod || profile?.is_admin) && (
+              <div style={{ marginBottom: 12, textAlign: 'right' }}>
+                <button className="btn btn-ghost" onClick={() => setShowModPanel(o => !o)}>
+                  🛡 Moderação
+                </button>
+              </div>
             )}
-          </div>
-        )}
-        {(isMod || profile?.is_admin) && (
-          <div style={{ marginBottom: 16, textAlign: 'right' }}>
-            <button className="btn btn-ghost" onClick={() => setShowModPanel(o => !o)}>
-              🛡 Painel de moderação
-            </button>
-          </div>
-        )}
-        {showModPanel && (isMod || profile?.is_admin) && (
-          <ModPanel
-            community={community}
-            onRulesSaved={rules => setCommunity(c => ({ ...c, rules }))}
-          />
-        )}
-        {posts.length === 0 && (
-          <div className="card" style={{ textAlign: 'center', padding: 40 }}>
-            <p style={{ color: 'var(--muted)' }}>Nenhuma publicação nesta comunidade ainda.</p>
-            <Link to="/criar" className="btn btn-primary" style={{ marginTop: 12 }}>Criar post</Link>
+            {showModPanel && (isMod || profile?.is_admin) && (
+              <ModPanel
+                community={community}
+                onRulesSaved={rules => setCommunity(c => ({ ...c, rules }))}
+              />
+            )}
+            {posts.length === 0 && (
+              <div className="card" style={{ textAlign: 'center', padding: 32 }}>
+                <p style={{ color: 'var(--muted)' }}>Nenhuma publicação ainda.</p>
+                <Link to="/criar" className="btn btn-primary" style={{ marginTop: 10 }}>Criar post</Link>
           </div>
         )}
         {posts.map(p => (
           <PostCard key={p.id} post={p} canModerate={isMod} onDeleted={() => setPosts(ps => ps.filter(x => x.id !== p.id))} />
         ))}
+          </div>
+          <aside className="comm-sidebar">
+            <div className="card">
+              <h4>Sobre</h4>
+              {community.description && <p>{community.description}</p>}
+              <div className="comm-stat">
+                <div><b>{compact(community.members)}</b><span>Membros</span></div>
+              </div>
+              {community.rules && (
+                <div className="comm-rules">
+                  <h4>Regras</h4>
+                  <p style={{ whiteSpace: 'pre-wrap' }}>{community.rules}</p>
+                </div>
+              )}
+              <div className="comm-created">
+                📅 Criada em {new Date(community.created_at || Date.now()).toLocaleDateString('pt-BR')}
+              </div>
+            </div>
+          </aside>
+        </div>
       </div>
     </div>
   )
