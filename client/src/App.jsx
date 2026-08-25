@@ -42,11 +42,8 @@ function Topbar() {
               <span className="avatar">{(profile?.apelido || '?')[0].toUpperCase()}</span>
             </button>
             <div className={`avatar-dropdown ${menu ? 'open' : ''}`}>
-              <Link to={`/u/${profile?.apelido || ''}`} onClick={() => setMenu(false)}>
+              <Link to="/perfil" onClick={() => setMenu(false)}>
                 <Icon name="person" size={14} /> Meu perfil
-              </Link>
-              <Link to="/perfil?editar=1" onClick={() => setMenu(false)}>
-                <Icon name="pen" size={14} /> Editar perfil
               </Link>
               <button onClick={async () => { setMenu(false); await signOut(); navigate('/login') }}>
                 Sair da conta
