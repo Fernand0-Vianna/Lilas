@@ -46,7 +46,7 @@ export default function Profile() {
         setEditOpen(true)
       }
       const [postsR, followR, followersR, followingR] = await Promise.all([
-        supabase.from('posts').select('*, profiles(apelido, avatar_url), communities(name, slug), likes(vote), comments(count), poll_votes(option_idx)').eq('author_id', data.id).order('created_at', { ascending: false }),
+        supabase.from('posts').select('*, profiles!posts_author_id_fkey(apelido, avatar_url), communities(name, slug), likes(vote), comments(count), poll_votes(option_idx)').eq('author_id', data.id).order('created_at', { ascending: false }),
         supabase.from('follows').select('id').eq('follower_id', session.user.id).eq('following_id', data.id).maybeSingle(),
         supabase.from('follows').select('id', { count: 'exact', head: true }).eq('following_id', data.id),
         supabase.from('follows').select('id', { count: 'exact', head: true }).eq('follower_id', data.id)
@@ -121,7 +121,7 @@ export default function Profile() {
   useEffect(() => {
     if (tab !== 'saves') return
       supabase.from('saves')
-      .select('post_id, posts(*, profiles(apelido, avatar_url), communities(slug, name), likes(vote), comments(count), poll_votes(option_idx))')
+      .select('post_id, posts(*, profiles!posts_author_id_fkey(apelido, avatar_url), communities(slug, name), likes(vote), comments(count), poll_votes(option_idx))')
       .eq('user_id', session.user.id)
       .order('created_at', { ascending: false })
       .then(({ data }) => setSavedPosts((data || []).map(s => s.posts).filter(Boolean)))

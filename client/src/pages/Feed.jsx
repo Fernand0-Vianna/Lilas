@@ -19,7 +19,7 @@ function useFeed(q) {
     setLoading(true)
     let query = supabase
       .from('posts')
-      .select('*, profiles(apelido, avatar_url), communities(slug, name), likes(vote), comments(count), poll_votes(option_idx)')
+      .select('*, profiles!posts_author_id_fkey(apelido, avatar_url), communities(slug, name), likes(vote), comments(count), poll_votes(option_idx)')
       .order('created_at', { ascending: false })
       .limit(50)
     if (q) query = query.ilike('title', `%${q}%`)

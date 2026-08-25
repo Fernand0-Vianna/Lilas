@@ -68,7 +68,7 @@ export default function Post() {
     Promise.all([
       supabase
         .from('posts')
-        .select('*, profiles(apelido), communities(slug, name), likes(vote), comments(count), poll_votes(option_idx)')
+        .select('*, profiles!posts_author_id_fkey(apelido), communities(slug, name), likes(vote), comments(count), poll_votes(option_idx)')
         .eq('id', id)
         .single(),
       supabase.from('comments')
