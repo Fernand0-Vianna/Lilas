@@ -66,3 +66,8 @@ $$;
 
 revoke execute on function public.delete_account() from public;
 grant execute on function public.delete_account() to authenticated;
+
+-- 5) Comentários aninhados (threads, estilo Reddit)
+-- Responder vira insert com parent_id; excluir pai apaga a sub-árvore.
+alter table public.comments add column if not exists parent_id uuid references public.comments(id) on delete cascade;
+create index if not exists comments_parent_idx on public.comments(parent_id);

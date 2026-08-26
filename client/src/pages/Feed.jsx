@@ -19,7 +19,7 @@ function useFeed(q) {
     setLoading(true)
     let query = supabase
       .from('posts')
-      .select('*, profiles(apelido, avatar_url), communities(slug, name), likes(vote), comments(count)')
+      .select('*, profiles!posts_author_id_fkey(apelido, avatar_url), communities(slug, name), likes(vote), comments(count), poll_votes(option_idx)')
       .order('created_at', { ascending: false })
       .limit(50)
     if (q) query = query.ilike('title', `%${q}%`)
@@ -55,13 +55,24 @@ export default function Feed() {
           <h3>Comunidades</h3>
           {communities.map(c => (
             <Link key={c.id} to={`/c/${c.slug}`} className="rail-item">
-              <span className="r">{c.name.replace('r/', '').slice(0, 1)}</span>
+              <span className={`r${c.banner_url ? ' r--img' : ''}`} style={c.banner_url ? { backgroundImage: `url(${c.banner_url})` } : undefined}>{c.name.replace('r/', '').slice(0, 1)}</span>
               {c.name}
             </Link>
           ))}
         </aside>
 
         <main className="main">
+          {/* Mobile Emergency / Support Banner */}
+          <aside className="mobile-help-banner" aria-label="Central de Atendimento">
+            <div className="mobile-help-content">
+              <span className="mobile-help-badge">Apoio 24h</span>
+              <span className="mobile-help-text">Precisa de ajuda? Ligue <strong>180</strong> (gratuito)</span>
+            </div>
+            <a href="tel:180" className="btn mobile-help-btn" title="Ligar para a Central 180">
+              Ligar 180
+            </a>
+          </aside>
+
           {q && <h2 style={{ fontSize: 18, margin: '16px 0' }}>Resultados para "{q}"</h2>}
           <div className="feed-tabs">
             <button className={tab === 'hot' ? 'active' : ''} onClick={() => setTab('hot')}>Em alta</button>
@@ -83,14 +94,20 @@ export default function Feed() {
           <div className="card welcome">
             <span className="avatar big-av">{(profile?.apelido || '?')[0].toUpperCase()}</span>
             <h4>Bem-vinda, @{profile?.apelido}</h4>
-            <p>Encontre apoio e compartilhe sua história em segurança.</p>
+            <p>Encontre apoio e compartilhe sua história.</p>
             <Link to="/criar" className="btn btn-primary welcome-btn">+ Criar post</Link>
           </div>
-          <div className="card">
-            <h3 style={{ fontSize: 14, marginBottom: 8 }}>Ligue 180</h3>
-            <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
-              Central de Atendimento à Mulher — gratuito e 24h. Ligue 180. Sua publicação pode salvar vidas.
-            </p>
+          <div className="card side-info">
+            <h4>Lilás</h4>
+            <p>Rede social segura para enfrentamento à violência contra a mulher.</p>
+            <div className="side-meta">
+              <span><b>5</b> comunidades</span>
+              <span><b>180</b> Central de Atendimento</span>
+            </div>
+          </div>
+          <div className="card side-info">
+            <h4>Emergência</h4>
+            <p>Ligue <b>180</b> — Central de Atendimento à Mulher. Gratuito e 24h.</p>
           </div>
         </aside>
       </div>

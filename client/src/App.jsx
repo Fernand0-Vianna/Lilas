@@ -15,8 +15,9 @@ import Icon from './components/Icons.jsx'
 import { useState } from 'react'
 
 function Topbar() {
-  const { profile } = useAuth()
+  const { profile, signOut } = useAuth()
   const [q, setQ] = useState('')
+  const [menu, setMenu] = useState(false)
   const navigate = useNavigate()
 
   return (
@@ -41,9 +42,9 @@ function Topbar() {
           <NavLink to="/comunidades">Comunidades</NavLink>
           {profile?.is_admin && <NavLink to="/denuncias">Denúncias</NavLink>}
           <Link to="/criar" className="btn btn-primary">+ Criar</Link>
-          <button className="topbar-bell" title="Alertas"><Icon name="bell" size={18} /></button>
-          
-          {/* Avatar redirecionando direto para a página de perfil */}
+          <button className="topbar-bell" title="Alertas">
+            <Icon name="bell" size={18} />
+          </button>
           <div className="avatar-menu">
             <button 
               className="avatar-link" 
@@ -52,6 +53,14 @@ function Topbar() {
             >
               <span className="avatar">{(profile?.apelido || '?')[0].toUpperCase()}</span>
             </button>
+            <div className={`avatar-dropdown ${menu ? 'open' : ''}`}>
+              <Link to="/perfil" onClick={() => setMenu(false)}>
+                <Icon name="person" size={14} /> Meu perfil
+              </Link>
+              <button onClick={async () => { setMenu(false); await signOut(); navigate('/login') }}>
+                Sair da conta
+              </button>
+            </div>
           </div>
         </nav>
       </div>
