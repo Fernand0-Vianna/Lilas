@@ -61,13 +61,14 @@ export default function Post() {
   const [body, setBody] = useState('')
   const [replyTo, setReplyTo] = useState(null)
   const [replyBody, setReplyBody] = useState('')
+  const [isMod, setIsMod] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     Promise.all([
       supabase
         .from('posts')
-        .select('*, profiles(apelido), communities(slug, name), likes(vote), comments(count)')
+        .select('*, profiles!posts_author_id_fkey(apelido), communities(slug, name), likes(vote), comments(count), poll_votes(option_idx)')
         .eq('id', id)
         .single(),
       supabase.from('comments')
@@ -76,7 +77,10 @@ export default function Post() {
         .order('created_at')
     ]).then(async ([p, c]) => {
       const data = p.data
-      if (data) setPost(data)
+      if (data) {
+        setPost(data)
+        supabase.rpc('is_mod_of', { p_community: data.community_id }).then(({ data: mod }) => setIsMod(!!mod))
+      }
       const list = c.data || []
       if (session && list.length) {
         const my = await supabase.from('comment_votes').select('comment_id, vote').in('comment_id', list.map(x => x.id)).eq('user_id', session.user.id)
@@ -156,12 +160,17 @@ export default function Post() {
   return (
     <div className="container" style={{ maxWidth: 760 }}>
       <div style={{ paddingTop: 24 }}>
-        <PostCard post={post} onDeleted={() => navigate('/')} />
+        <PostCard post={post} canModerate={isMod} onDeleted={() => navigate('/')} />
         <div className="card" style={{ marginTop: 16 }}>
           <h3 style={{ fontSize: 16, marginBottom: 12 }}>Comentários</h3>
           {replyForm(addComment, body, setBody)}
           {rows.map(({ c, depth }) => (
-            <div key={c.id} className="comment-row" style={depth ? { marginLeft: Math.min(depth, 6) * 16 } : undefined}>
+            <div key={c.id} className="comment-row">
+              {depth > 0 && (
+                <div className="comment-thread">
+                  <div className="comment-line" />
+                </div>
+              )}
               <CommentVote comment={c} />
               <div className="comment">
                 <span className="avatar">{(c.profiles?.apelido || '?')[0].toUpperCase()}</span>
@@ -170,15 +179,15 @@ export default function Post() {
                   <div className="c-body">{c.body}</div>
                   <button
                     className="action"
-                    style={{ fontSize: 12 }}
+                    style={{ fontSize: 11 }}
                     onClick={() => { setReplyTo(replyTo === c.id ? null : c.id); setReplyBody('') }}
                   >
-                    <Icon name="comment" size={12} /> Responder
+                    <Icon name="comment" size={11} /> Responder
                   </button>
                   {replyTo === c.id && replyForm(sendReply, replyBody, setReplyBody, () => setReplyTo(null))}
                 </div>
                 <ReportComment commentId={c.id} />
-                {(profile?.is_admin || c.author_id === session.user.id) && (
+                {(isMod || profile?.is_admin || c.author_id === session.user.id) && (
                   <button className="action" style={{ color: 'var(--danger, #c0392b)' }} onClick={() => deleteComment(c.id)}>🗑</button>
                 )}
               </div>

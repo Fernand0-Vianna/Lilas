@@ -1,12 +1,280 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
-import { compact } from '../lib/format.js'
+import { compact, timeAgo } from '../lib/format.js'
 import PostCard from '../components/PostCard.jsx'
 import BottomNav from '../components/BottomNav.jsx'
 import Icon from '../components/Icons.jsx'
 import logo from '../assets/lilas-logo.svg'
+
+function FollowersModal({ userId, type, onClose }) {
+  const [list, setList] = useState([])
+  const [loading, setLoading] = useState(true)
+  const { session, profile } = useAuth()
+  const [followingMap, setFollowingMap] = useState({})
+
+  useEffect(() => {
+    setLoading(true)
+    const fetchList = async () => {
+      const isFollowers = type === 'followers'
+      const q = isFollowers
+        ? supabase.from('follows').select('follower_id, profiles:follower_id(id, apelido, avatar_url)').eq('following_id', userId)
+        : supabase.from('follows').select('following_id, profiles:following_id(id, apelido, avatar_url)').eq('follower_id', userId)
+      const { data } = await q
+      const items = (data || []).map(r => isFollowers ? r.profiles : r.profiles).filter(Boolean)
+      setList(items)
+      if (session?.user) {
+        const ids = items.map(i => i.id).filter(id => id !== session.user.id)
+        if (ids.length) {
+          const { data: f } = await supabase.from('follows').select('following_id').eq('follower_id', session.user.id).in('following_id', ids)
+          const map = {}
+          ;(f || []).forEach(r => { map[r.following_id] = true })
+          setFollowingMap(map)
+        }
+      }
+      setLoading(false)
+    }
+    fetchList()
+  }, [userId, type, session?.user?.id])
+
+  async function toggleFollow(targetId) {
+    if (followingMap[targetId]) {
+      await supabase.from('follows').delete().eq('follower_id', session.user.id).eq('following_id', targetId)
+      setFollowingMap(m => { const n = { ...m }; delete n[targetId]; return n })
+    } else {
+      await supabase.from('follows').insert({ follower_id: session.user.id, following_id: targetId })
+      setFollowingMap(m => ({ ...m, [targetId]: true }))
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-sheet" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>{type === 'followers' ? 'Seguidores' : 'Seguindo'}</h3>
+          <button className="modal-close" onClick={onClose}><Icon name="x-close" size={20} /></button>
+        </div>
+        <div className="modal-body">
+          {loading ? <p className="modal-empty">Carregando...</p> : list.length === 0 ? (
+            <p className="modal-empty">{type === 'followers' ? 'Nenhum seguidor ainda.' : 'Não segue ninguém ainda.'}</p>
+          ) : list.map(u => (
+            <div key={u.id} className="modal-user-row">
+              <Link to={`/u/${u.apelido}`} className="modal-user-link" onClick={onClose}>
+                <span className="avatar-sm">{u.avatar_url ? <img src={u.avatar_url} alt="" /> : (u.apelido || '?')[0].toUpperCase()}</span>
+                <span className="modal-user-name">{u.apelido}</span>
+              </Link>
+              {u.id !== session?.user?.id && (
+                <button className={`btn btn-sm ${followingMap[u.id] ? 'btn-outline' : 'btn-primary'}`} onClick={() => toggleFollow(u.id)}>
+                  {followingMap[u.id] ? 'Seguindo' : 'Seguir'}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ActivityFeed({ userId }) {
+  const [activity, setActivity] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    setLoading(true)
+    const fetchActivity = async () => {
+      const { data: posts } = await supabase.from('posts').select('id').eq('author_id', userId)
+      const postIds = (posts || []).map(p => p.id)
+      if (!postIds.length) { setActivity([]); setLoading(false); return }
+
+      const [likesR, commentsR] = await Promise.all([
+        supabase.from('likes').select('vote, post_id, user_id, created_at:post_id').in('post_id', postIds).order('post_id', { ascending: false }).limit(20),
+        supabase.from('comments').select('body, post_id, user_id, created_at, profiles:user_id(apelido, avatar_url)').in('post_id', postIds).order('created_at', { ascending: false }).limit(20)
+      ])
+
+      const items = []
+      ;(commentsR.data || []).forEach(c => {
+        items.push({ type: 'comment', postId: c.post_id, user: c.profiles, body: c.body, created_at: c.created_at })
+      })
+      items.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      setActivity(items.slice(0, 15))
+      setLoading(false)
+    }
+    fetchActivity()
+  }, [userId])
+
+  if (loading) return <p className="profile-empty">Carregando atividade...</p>
+  if (!activity.length) return <p className="profile-empty">Nenhuma atividade recente.</p>
+
+  return (
+    <div className="activity-list">
+      {activity.map((item, i) => (
+        <div key={i} className="activity-item">
+          <span className="avatar-xs">{item.user?.apelido?.[0]?.toUpperCase() || '?'}</span>
+          <div className="activity-body">
+            <p><b>{item.user?.apelido}</b> comentou em <Link to={`/post/${item.postId}`}>um post</Link></p>
+            <p className="activity-preview">{item.body?.slice(0, 120)}{item.body?.length > 120 ? '...' : ''}</p>
+            <span className="activity-time">{timeAgo(item.created_at)}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function fileToWebP(file, quality = 0.85, maxSize = 1200) {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      const scale = Math.min(1, maxSize / Math.max(img.naturalWidth, img.naturalHeight))
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.round(img.naturalWidth * scale)
+      canvas.height = Math.round(img.naturalHeight * scale)
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+      canvas.toBlob(b => {
+        URL.revokeObjectURL(url)
+        if (b) resolve(b)
+        else reject(new Error('Não foi possível processar a imagem.'))
+      }, 'image/webp', quality)
+    }
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Arquivo inválido.')) }
+    img.src = url
+  })
+}
+
+function EditModal({ profile, onClose, onSave, onAvatarUpload, onCoverUpload, onSignOut, onDeleteAccount }) {
+  const [apelido, setApelido] = useState(profile.apelido || '')
+  const [bio, setBio] = useState(profile.bio || '')
+  const [pw1, setPw1] = useState('')
+  const [pw2, setPw2] = useState('')
+  const [msg, setMsg] = useState('')
+  const [pwMsg, setPwMsg] = useState('')
+  const [tab, setTab] = useState('profile')
+  const avatarFileRef = useRef()
+  const coverFileRef = useRef()
+
+  async function handleSave() {
+    setMsg('')
+    if (!apelido.trim()) { setMsg('Escolha um apelido.'); return }
+    const { error } = await supabase.from('profiles').update({
+      apelido: apelido.trim().replace(/^@/, ''),
+      bio: bio.trim()
+    }).eq('id', profile.id)
+    if (error) { setMsg(error.message); return }
+    onSave(apelido.trim().replace(/^@/, ''), bio.trim())
+    setMsg('Perfil atualizado.')
+  }
+
+  async function handleChangePw() {
+    setPwMsg('')
+    if (!pw1 || pw1.length < 6) { setPwMsg('A senha deve ter ao menos 6 caracteres.'); return }
+    if (pw1 !== pw2) { setPwMsg('As senhas não conferem.'); return }
+    const { error } = await supabase.auth.updateUser({ password: pw1 })
+    if (error) { setPwMsg(error.message); return }
+    setPwMsg('Senha atualizada.')
+    setPw1(''); setPw2('')
+  }
+
+  async function handleAvatarChange(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) { setMsg('Imagem muito grande (máx 5MB).'); return }
+    await onAvatarUpload(file)
+  }
+
+  async function handleCoverChange(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) { setMsg('Imagem muito grande (máx 5MB).'); return }
+    await onCoverUpload(file)
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-sheet modal-edit" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>Editar perfil</h3>
+          <button className="modal-close" onClick={onClose}><Icon name="x-close" size={20} /></button>
+        </div>
+        <div className="modal-tabs">
+          <button type="button" className={tab === 'profile' ? 'active' : ''} onClick={() => setTab('profile')}>Perfil & Fotos</button>
+          <button type="button" className={tab === 'security' ? 'active' : ''} onClick={() => setTab('security')}>Conta & Segurança</button>
+        </div>
+        <div className="modal-body">
+          {tab === 'profile' ? (
+            <>
+              <div className="edit-photos-section" style={{ display: 'flex', gap: 16, justifyContent: 'center', alignItems: 'center', margin: '8px 0 16px', flexWrap: 'wrap' }}>
+                <div className="edit-avatar-section" style={{ margin: 0 }}>
+                  <div className="edit-avatar-wrap" onClick={() => avatarFileRef.current?.click()} title="Trocar foto de perfil">
+                    {profile.avatar_url ? <img src={profile.avatar_url} alt="" className="edit-avatar-img" /> : <span className="edit-avatar-letter">{(profile.apelido || '?')[0].toUpperCase()}</span>}
+                    <div className="edit-avatar-overlay"><Icon name="camera" size={20} /></div>
+                  </div>
+                  <input ref={avatarFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarChange} />
+                  <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: 4 }} onClick={() => avatarFileRef.current?.click()}>Foto de perfil</button>
+                </div>
+
+                <div className="edit-cover-section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <div
+                    className="edit-cover-preview"
+                    onClick={() => coverFileRef.current?.click()}
+                    style={{
+                      width: 120, height: 72, borderRadius: 10, cursor: 'pointer', overflow: 'hidden',
+                      background: (profile.cover_url || profile.banner_url) ? `url(${profile.cover_url || profile.banner_url}) center/cover` : 'linear-gradient(135deg, var(--primary), var(--primary-dark))',
+                      display: 'grid', placeItems: 'center', border: '1.5px solid var(--border)', position: 'relative'
+                    }}
+                    title="Trocar imagem de fundo (capa)"
+                  >
+                    <div className="edit-cover-overlay" style={{ background: 'rgba(0,0,0,0.3)', width: '100%', height: '100%', display: 'grid', placeItems: 'center', color: '#fff' }}>
+                      <Icon name="camera" size={18} />
+                    </div>
+                  </div>
+                  <input ref={coverFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleCoverChange} />
+                  <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: 4 }} onClick={() => coverFileRef.current?.click()}>Foto de fundo</button>
+                </div>
+              </div>
+
+              <div className="field">
+                <label>Apelido</label>
+                <input value={apelido} onChange={e => setApelido(e.target.value)} placeholder="nome_fantasia" />
+              </div>
+              <div className="field">
+                <label>Bio</label>
+                <textarea rows={3} value={bio} onChange={e => setBio(e.target.value)} placeholder="Conte um pouco sobre você..." />
+              </div>
+              {msg && <p className={msg.includes('atualizado') ? 'ok' : 'error'}>{msg}</p>}
+              <button type="button" className="btn btn-primary btn-block" onClick={handleSave}>Salvar perfil</button>
+            </>
+          ) : (
+            <>
+              <h4 className="edit-section-title">Alterar senha</h4>
+              <div className="field">
+                <label>Nova senha</label>
+                <input type="password" placeholder="Mínimo 6 caracteres" value={pw1} onChange={e => setPw1(e.target.value)} />
+              </div>
+              <div className="field">
+                <label>Repetir senha</label>
+                <input type="password" placeholder="Confirme a senha" value={pw2} onChange={e => setPw2(e.target.value)} />
+              </div>
+              {pwMsg && <p className={pwMsg.includes('atualizada') ? 'ok' : 'error'}>{pwMsg}</p>}
+              <button type="button" className="btn btn-primary btn-block" onClick={handleChangePw}>Salvar nova senha</button>
+
+              <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button type="button" className="btn btn-outline btn-block" onClick={onSignOut}>
+                  Sair da conta
+                </button>
+                <button type="button" className="btn btn-ghost btn-block" style={{ color: 'var(--danger, #d6336c)' }} onClick={onDeleteAccount}>
+                  Excluir conta definitivamente
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function Profile() {
   const { apelido } = useParams()
@@ -22,12 +290,15 @@ export default function Profile() {
   const [notFound, setNotFound] = useState(false)
   const [tab, setTab] = useState('posts')
   const [editOpen, setEditOpen] = useState(false)
-  const [pw1, setPw1] = useState('')
-  const [pw2, setPw2] = useState('')
-  const [pwMsg, setPwMsg] = useState('')
-  const [bio, setBio] = useState('')
-  const [apelido2, setApelido2] = useState('')
-  const [saveMsg, setSaveMsg] = useState('')
+  const [modal, setModal] = useState(null)
+  const [toast, setToast] = useState('')
+  const avatarInputRef = useRef()
+  const coverInputRef = useRef()
+
+  const showToast = useCallback((msg) => {
+    setToast(msg)
+    setTimeout(() => setToast(''), 2500)
+  }, [])
 
   useEffect(() => {
     setLoading(true)
@@ -40,13 +311,9 @@ export default function Profile() {
     q.then(async ({ data }) => {
       if (!data) { setNotFound(true); setLoading(false); return }
       setProfile(data)
-      if (params.get('editar') === '1') {
-        setBio(data.bio || '')
-        setApelido2(data.apelido || '')
-        setEditOpen(true)
-      }
+      if (params.get('editar') === '1') setEditOpen(true)
       const [postsR, followR, followersR, followingR] = await Promise.all([
-        supabase.from('posts').select('*, profiles(apelido, avatar_url), communities(name, slug)').eq('author_id', data.id).order('created_at', { ascending: false }),
+        supabase.from('posts').select('*, profiles!posts_author_id_fkey(apelido, avatar_url), communities(name, slug), likes(vote), comments(count), poll_votes(option_idx)').eq('author_id', data.id).order('created_at', { ascending: false }),
         supabase.from('follows').select('id').eq('follower_id', session.user.id).eq('following_id', data.id).maybeSingle(),
         supabase.from('follows').select('id', { count: 'exact', head: true }).eq('following_id', data.id),
         supabase.from('follows').select('id', { count: 'exact', head: true }).eq('follower_id', data.id)
@@ -55,14 +322,14 @@ export default function Profile() {
       setPosts(list)
       setFollowing(!!followR.data)
       const ids = list.map(p => p.id)
-      const karma = ids.length
-        ? supabase.from('likes').select('vote').in('post_id', ids).then(r => (r.data || []).reduce((s, l) => s + (l.vote || 0), 0))
-        : 0
       const tally = async (table) => ids.length
         ? supabase.from(table).select('id', { count: 'exact', head: true }).in('post_id', ids).then(r => r.count || 0)
         : 0
-      const [likes, comments] = await Promise.all([karma, tally('comments')])
-      setStats({ posts: list.length, likes, comments, followers: followersR.count || 0, following: followingR.count || 0 })
+      const [karmaR, comments] = await Promise.all([
+        supabase.rpc('karma_of', { p_user: data.id }),
+        tally('comments')
+      ])
+      setStats({ posts: list.length, likes: karmaR.data ?? 0, comments, followers: followersR.count || 0, following: followingR.count || 0 })
       setLoading(false)
     })
   }, [apelido, session.user.id])
@@ -79,35 +346,69 @@ export default function Profile() {
     }
   }
 
-  async function changePassword() {
-    setPwMsg('')
-    if (!pw1 || pw1.length < 6) { setPwMsg('A senha deve ter ao menos 6 caracteres.'); return }
-    if (pw1 !== pw2) { setPwMsg('As senhas não conferem.'); return }
-    const { error } = await supabase.auth.updateUser({ password: pw1 })
-    if (error) { setPwMsg(error.message); return }
-    setPwMsg('Senha atualizada.')
-    setPw1('')
-    setPw2('')
+  function handleShare() {
+    const url = `${window.location.origin}/u/${profile.apelido}`
+    navigator.clipboard?.writeText(url).then(() => showToast('Link copiado!')).catch(() => showToast(url))
   }
 
-  function openEdit() {
-    setEditOpen(o => !o)
-    setBio(profile.bio || '')
-    setApelido2(profile.apelido || '')
-    setSaveMsg('')
+  async function handleAvatarUpload(file) {
+    try {
+      showToast('Enviando foto de perfil...')
+      const webp = await fileToWebP(file, 0.85, 600)
+      const fileName = `${profile.id}/avatar_${Date.now()}.webp`
+      
+      let uploadRes = await supabase.storage.from('posts').upload(`avatars/${fileName}`, webp, { contentType: 'image/webp', upsert: true })
+      let publicUrl = ''
+      if (!uploadRes.error) {
+        publicUrl = supabase.storage.from('posts').getPublicUrl(`avatars/${fileName}`).data.publicUrl
+      } else {
+        const altRes = await supabase.storage.from('avatars').upload(fileName, webp, { contentType: 'image/webp', upsert: true })
+        if (altRes.error) throw new Error(altRes.error.message || uploadRes.error.message)
+        publicUrl = supabase.storage.from('avatars').getPublicUrl(fileName).data.publicUrl
+      }
+      
+      const bustUrl = `${publicUrl}?t=${Date.now()}`
+      const { error: dbErr } = await supabase.from('profiles').update({ avatar_url: bustUrl }).eq('id', profile.id)
+      if (dbErr) throw dbErr
+      
+      setProfile(p => ({ ...p, avatar_url: bustUrl }))
+      await refreshProfile()
+      showToast('Foto de perfil atualizada!')
+    } catch (err) {
+      console.error(err)
+      showToast(`Erro ao atualizar foto: ${err.message || 'Tente novamente.'}`)
+    }
   }
 
-  async function saveProfile() {
-    setSaveMsg('')
-    if (!apelido2.trim()) { setSaveMsg('Escolha um apelido.'); return }
-    const { error } = await supabase.from('profiles').update({
-      apelido: apelido2.trim().replace(/^@/, ''),
-      bio: bio.trim()
-    }).eq('id', session.user.id)
-    if (error) { setSaveMsg(error.message); return }
-    await refreshProfile()
-    setProfile(p => ({ ...p, apelido: apelido2.trim().replace(/^@/, ''), bio: bio.trim() }))
-    setSaveMsg('Perfil atualizado.')
+  async function handleCoverUpload(file) {
+    try {
+      showToast('Enviando imagem de capa...')
+      const webp = await fileToWebP(file, 0.85, 1400)
+      const fileName = `${profile.id}/cover_${Date.now()}.webp`
+      
+      let uploadRes = await supabase.storage.from('posts').upload(`covers/${fileName}`, webp, { contentType: 'image/webp', upsert: true })
+      let publicUrl = ''
+      if (!uploadRes.error) {
+        publicUrl = supabase.storage.from('posts').getPublicUrl(`covers/${fileName}`).data.publicUrl
+      } else {
+        const altRes = await supabase.storage.from('avatars').upload(`cover_${fileName}`, webp, { contentType: 'image/webp', upsert: true })
+        if (altRes.error) throw new Error(altRes.error.message || uploadRes.error.message)
+        publicUrl = supabase.storage.from('avatars').getPublicUrl(`cover_${fileName}`).data.publicUrl
+      }
+      
+      const bustUrl = `${publicUrl}?t=${Date.now()}`
+      let updateRes = await supabase.from('profiles').update({ cover_url: bustUrl }).eq('id', profile.id)
+      if (updateRes.error) {
+        updateRes = await supabase.from('profiles').update({ banner_url: bustUrl }).eq('id', profile.id)
+      }
+      
+      setProfile(p => ({ ...p, cover_url: bustUrl, banner_url: bustUrl }))
+      await refreshProfile()
+      showToast('Foto de fundo atualizada!')
+    } catch (err) {
+      console.error(err)
+      showToast(`Erro ao atualizar capa: ${err.message || 'Tente novamente.'}`)
+    }
   }
 
   async function deleteAccount() {
@@ -121,63 +422,113 @@ export default function Profile() {
   useEffect(() => {
     if (tab !== 'saves') return
     supabase.from('saves')
-      .select('post_id, posts(*, profiles(apelido, avatar_url), communities(slug, name), likes(vote), comments(count))')
+      .select('post_id, posts(*, profiles!posts_author_id_fkey(apelido, avatar_url), communities(slug, name), likes(vote), comments(count), poll_votes(option_idx))')
       .eq('user_id', session.user.id)
       .order('created_at', { ascending: false })
       .then(({ data }) => setSavedPosts((data || []).map(s => s.posts).filter(Boolean)))
   }, [tab, session.user.id])
 
   if (loading) return <div className="container" style={{ paddingTop: 24 }}>Carregando...</div>
+  if (!notFound && !profile) return <div className="container" style={{ paddingTop: 24 }}>Carregando...</div>
   if (notFound) return <div className="container" style={{ paddingTop: 24 }}>Usuário não encontrado.</div>
 
   const isMe = profile.id === session.user.id
   const initial = (profile.apelido || '?')[0].toUpperCase()
-  const firstName = profile.apelido.split(/[^a-zA-Z0-9]/)[0]
   const memberYear = new Date(profile.created_at).getFullYear()
+  const memberMonth = new Date(profile.created_at).toLocaleDateString('pt-BR', { month: 'long' })
 
   return (
     <div className="profile-page">
       <header className="profile-topbar">
         <div className="profile-topbar-inner">
+          <button type="button" className="profile-back-btn" onClick={() => navigate(-1)} aria-label="Voltar" title="Voltar">
+            <Icon name="chevron-left" size={20} />
+          </button>
           <Link to="/" className="profile-logo">
             <img src={logo} alt="Lilás" className="logo-img" />
             Lilás
           </Link>
-          <Link to="/" className="profile-back">
-            <Icon name="chevron-left" size={15} /> Voltar
-          </Link>
           <span className="profile-topbar-title">{isMe ? 'Meu perfil' : `u/${profile.apelido}`}</span>
-          {isMe && (
-            <button className="profile-gear" onClick={openEdit}>
-              <Icon name="gear" size={22} />
+          {isMe ? (
+            <button className="profile-gear" onClick={() => setEditOpen(true)} title="Configurações e editar perfil">
+              <Icon name="gear" size={20} />
             </button>
+          ) : (
+            <div className="profile-topbar-spacer" />
           )}
           <Link to="/perfil" className="profile-topbar-user">
-            <span className="avatar">{initial}</span>
-            <span className="avatar-name">{firstName}</span>
+            <span className="avatar">{profile.avatar_url ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : initial}</span>
+            <span className="avatar-name">{profile.apelido?.split(/[^a-zA-Z0-9]/)[0]}</span>
           </Link>
         </div>
       </header>
 
       <div className="profile-hero">
-        <div className="profile-cover" />
+        <div
+          className="profile-cover"
+          style={(profile.cover_url || profile.banner_url) ? {
+            backgroundImage: `url(${profile.cover_url || profile.banner_url})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center'
+          } : undefined}
+        >
+          {isMe && (
+            <>
+              <button
+                type="button"
+                className="cover-upload-btn"
+                onClick={() => coverInputRef.current?.click()}
+                title="Trocar foto de fundo (capa)"
+              >
+                <Icon name="camera" size={15} />
+                <span>Trocar capa</span>
+              </button>
+              <input
+                ref={coverInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleCoverUpload(f) }}
+              />
+            </>
+          )}
+        </div>
         <div className="container profile-identity-wrap">
           <div className="profile-identity">
-            <span className="profile-avatar">{initial}</span>
+            <div className="profile-avatar-wrap">
+              <span className="profile-avatar">
+                {profile.avatar_url ? <img src={profile.avatar_url} alt="" /> : initial}
+              </span>
+              {isMe && (
+                <button type="button" className="avatar-upload-btn" onClick={() => avatarInputRef.current?.click()} title="Trocar foto de perfil">
+                  <Icon name="camera" size={14} />
+                </button>
+              )}
+              <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) handleAvatarUpload(f) }} />
+            </div>
             <div className="profile-info">
               <h1 className="profile-name">{profile.apelido}</h1>
               <div className="profile-handle">@{profile.apelido}</div>
               {profile.bio && <p className="profile-bio">{profile.bio}</p>}
+              <div className="profile-meta">
+                <Icon name="location" size={12} />
+                <span>Membro desde {memberMonth} {memberYear}</span>
+              </div>
             </div>
-            {isMe ? (
-              <button className="btn profile-edit" onClick={openEdit}>
-                <Icon name="pen" size={15} /> Editar perfil
+            <div className="profile-actions">
+              {isMe ? (
+                <button className="btn btn-outline profile-action-btn" onClick={() => setEditOpen(true)}>
+                  <Icon name="pen" size={14} /> Editar perfil
+                </button>
+              ) : (
+                <button className={`btn profile-action-btn ${following ? 'btn-outline' : 'btn-primary'}`} onClick={toggleFollow}>
+                  {following ? 'Seguindo' : 'Seguir'}
+                </button>
+              )}
+              <button className="btn btn-ghost profile-action-btn" onClick={handleShare} title="Compartilhar perfil">
+                <Icon name="share" size={16} />
               </button>
-            ) : (
-              <button className={`btn profile-edit follow-btn ${following ? 'following' : ''}`} onClick={toggleFollow}>
-                {following ? 'Seguindo' : 'Seguir'}
-              </button>
-            )}
+            </div>
           </div>
         </div>
       </div>
@@ -187,47 +538,14 @@ export default function Profile() {
           <div><b>{compact(stats.posts)}</b><span>Posts</span></div>
           <div><b>{compact(stats.likes)}</b><span>Karma</span></div>
           <div><b>{compact(stats.comments)}</b><span>Comentários</span></div>
-          <div><b>{compact(stats.followers)}</b><span>Seguidores</span></div>
-          <div className="stat-following"><b>{compact(stats.following)}</b><span>Seguindo</span></div>
+          <button className="stat-btn" onClick={() => setModal('followers')}><b>{compact(stats.followers)}</b><span>Seguidores</span></button>
+          <button className="stat-btn" onClick={() => setModal('following')}><b>{compact(stats.following)}</b><span>Seguindo</span></button>
         </div>
 
-        {isMe && editOpen && (
-          <div className="card profile-edit-panel">
-            <h3 style={{ fontSize: 16, marginBottom: 12 }}>Editar perfil</h3>
-            <div className="field">
-              <label>Apelido</label>
-              <input value={apelido2} onChange={e => setApelido2(e.target.value)} placeholder="nome_fantasia" />
-            </div>
-            <div className="field">
-              <label>Bio</label>
-              <textarea rows={3} value={bio} onChange={e => setBio(e.target.value)} placeholder="Conte um pouco sobre você..." style={{ padding: '11px 14px', border: '1.5px solid var(--border)', borderRadius: 10, outline: 'none', fontFamily: 'inherit', fontSize: 14 }} />
-            </div>
-            {saveMsg && <p style={{ fontSize: 13, color: saveMsg === 'Perfil atualizado.' ? '#1a7f46' : '#d6336c', marginBottom: 12 }}>{saveMsg}</p>}
-            <button className="btn btn-primary" onClick={saveProfile}>Salvar perfil</button>
-
-            <h3 style={{ fontSize: 16, margin: '20px 0 12px' }}>Alterar senha</h3>
-            <div className="pw-row">
-              <div style={{ flex: 1 }}>
-                <input className="field" type="password" placeholder="Nova senha" value={pw1} onChange={e => setPw1(e.target.value)} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <input className="field" type="password" placeholder="Repetir senha" value={pw2} onChange={e => setPw2(e.target.value)} />
-              </div>
-              <button className="btn btn-primary" onClick={changePassword}>Salvar</button>
-            </div>
-            {pwMsg && <p style={{ fontSize: 13, color: pwMsg === 'Senha atualizada.' ? '#1a7f46' : '#d6336c', marginTop: 8 }}>{pwMsg}</p>}
-            <button className="btn btn-block" style={{ marginTop: 14, borderColor: 'var(--danger, #d6336c)', color: '#d6336c' }} onClick={async () => { await signOut(); navigate('/login') }}>
-              Sair da conta
-            </button>
-            <button className="btn btn-block" style={{ marginTop: 8, borderColor: 'var(--danger, #d6336c)', color: '#d6336c' }} onClick={deleteAccount}>
-              Excluir conta
-            </button>
-          </div>
-        )}
-
         <div className="profile-tabs">
-          <button className={tab === 'posts' ? 'active' : ''} onClick={() => setTab('posts')}>Meus posts</button>
-          <button className={tab === 'saves' ? 'active' : ''} onClick={() => setTab('saves')}>Salvos</button>
+          <button className={tab === 'posts' ? 'active' : ''} onClick={() => setTab('posts')}>Posts</button>
+          <button className={tab === 'activity' ? 'active' : ''} onClick={() => setTab('activity')}>Atividade</button>
+          {isMe && <button className={tab === 'saves' ? 'active' : ''} onClick={() => setTab('saves')}>Salvos</button>}
         </div>
 
         {tab === 'posts' ? (
@@ -235,35 +553,45 @@ export default function Profile() {
             <div className="profile-posts">
               {posts.map(p => <PostCard key={p.id} post={p} onDeleted={() => setPosts(ps => ps.filter(x => x.id !== p.id))} />)}
               {posts.length === 0 && (
-                <div className="card" style={{ textAlign: 'center', padding: 40 }}>
-                  <p style={{ color: 'var(--muted)' }}>Nenhuma publicação ainda.</p>
+                <div className="card profile-empty-card">
+                  <Icon name="pen" size={32} style={{ color: 'var(--muted-2)', marginBottom: 8 }} />
+                  <p>Nenhuma publicação ainda.</p>
+                  {isMe && <Link to="/criar" className="btn btn-primary" style={{ marginTop: 12 }}>Criar primeiro post</Link>}
                 </div>
               )}
             </div>
-
             <aside className="profile-side">
               <div className="card about-card">
                 <h3 className="about-title">Sobre mim</h3>
                 {profile.bio && <p className="about-body">{profile.bio}</p>}
                 <div className="about-meta">
                   <Icon name="location" size={13} />
-                  <span>Membro desde {memberYear}</span>
+                  <span>Membro desde {memberMonth} {memberYear}</span>
                 </div>
               </div>
-              <div className="help-card">
-                <h3 className="help-title">Precisa de ajuda?</h3>
-                <p className="help-body">Ligue 180. 24h e gratuito.</p>
-                <a className="help-btn" href="tel:180">Ligar agora</a>
-              </div>
+              {isMe && (
+                <div className="help-card">
+                  <h3 className="help-title">Precisa de ajuda?</h3>
+                  <p className="help-body">Ligue 180. 24h e gratuito.</p>
+                  <a className="help-btn" href="tel:180">Ligar agora</a>
+                </div>
+              )}
             </aside>
+          </div>
+        ) : tab === 'activity' ? (
+          <div className="profile-grid">
+            <div className="profile-posts">
+              <ActivityFeed userId={profile.id} />
+            </div>
           </div>
         ) : (
           <div className="profile-grid">
             <div className="profile-posts">
               {savedPosts.map(p => <PostCard key={p.id} post={p} onDeleted={() => setSavedPosts(ps => ps.filter(x => x.id !== p.id))} />)}
               {savedPosts.length === 0 && (
-                <div className="card" style={{ textAlign: 'center', padding: 40 }}>
-                  <p style={{ color: 'var(--muted)' }}>Nenhum post salvo. Toque no marcador para guardar publicações.</p>
+                <div className="card profile-empty-card">
+                  <Icon name="bookmark" size={32} style={{ color: 'var(--muted-2)', marginBottom: 8 }} />
+                  <p>Nenhum post salvo.</p>
                 </div>
               )}
             </div>
@@ -271,7 +599,22 @@ export default function Profile() {
         )}
       </div>
 
+      {editOpen && (
+        <EditModal
+          profile={profile}
+          onClose={() => setEditOpen(false)}
+          onSave={(a, b) => { setProfile(p => ({ ...p, apelido: a, bio: b })); refreshProfile() }}
+          onAvatarUpload={handleAvatarUpload}
+          onCoverUpload={handleCoverUpload}
+          onSignOut={async () => { setEditOpen(false); await signOut(); navigate('/login') }}
+          onDeleteAccount={deleteAccount}
+        />
+      )}
+      {modal && <FollowersModal userId={profile.id} type={modal} onClose={() => setModal(null)} />}
+      {toast && <div className="toast">{toast}</div>}
+
       <BottomNav />
     </div>
   )
 }
+

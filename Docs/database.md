@@ -65,6 +65,9 @@ Publicações dos usuários.
 | `title` | `text` | Título do post |
 | `body` | `text` | Conteúdo do post |
 | `image_url` | `text` | URL de imagem (opcional) |
+| `tag` | `text` | Tag de contexto (ex: `Dúvida`, `Conseguiu`) |
+| `link_url` | `text` | URL de post do tipo link |
+| `poll_options` | `text[]` | Opções da enquete (nulo = não é enquete) |
 | `created_at` | `timestamptz` | Data de criação |
 
 **Relacionamentos:**
@@ -109,6 +112,45 @@ Relação de seguir usuários.
 | `follower_id` | `uuid` | Referência a `profiles(id)` |
 | `following_id` | `uuid` | Referência a `profiles(id)` |
 
+### `poll_votes`
+
+Votos em enquetes. Um voto por usuário por post (PK composta).
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `post_id` | `uuid` | Referência a `posts(id)` |
+| `user_id` | `uuid` | Referência a `auth.users(id)` |
+| `option_idx` | `integer` | Índice da opção escolhida |
+
+### `community_mods`
+
+Moderadoras de comunidade, nomeadas pelo admin da plataforma.
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `community_id` | `uuid` | Referência a `communities(id)` |
+| `user_id` | `uuid` | Referência a `profiles(id)` |
+| `added_by` | `uuid` | Admin que nomeou |
+
+### `community_bans`
+
+Usuárias bloqueadas de uma comunidade (não conseguem entrar).
+
+Estrutura igual a `community_mods`, com `banned_by`.
+
+> `communities.rules` (text) guarda as regras da comunidade, editadas por mods.
+
+## Funções
+
+| Função | Retorno | Descrição |
+|--------|---------|-----------|
+| `karma_of(user)` | `int` | Soma dos votos recebidos em posts + comentários do usuário |
+| `is_admin()` | `boolean` | Usuária atual é admin |
+| `is_mod_of(community)` | `boolean` | Usuária atual é mod da comunidade (admin conta como mod) |
+| `vote_post(post, vote)` / `vote_comment(comment, vote)` | `int` | Voto atômico, retorna novo placar |
+| `sync_community_members()` | trigger | Mantém `communities.members` em sincia |
+| `delete_account()` | `void` | Exclui a conta e todos os dados |
+
 ## Diagrama ER
 
 ```mermaid
@@ -144,13 +186,16 @@ Todas as 7 tabelas possuem RLS habilitado. O total de políticas é 21.
 | `profiles` | SELECT público | Qualquer usuário autenticado pode ler perfis |
 | `profiles` | UPDATE próprio | Usuário pode editar apenas seu próprio perfil |
 | `communities` | SELECT público | Todos podem listar comunidades |
-| `community_members` | INSERT/Delete próprio | Usuário pode entrar/sair de comunidades |
+| `community_members` | INSERT/Delete próprio | Entrar/sair; INSERT bloqueado se banida |
 | `posts` | SELECT público | Todos podem ler posts |
-| `posts` | INSERT autenticado | Usuário autenticado pode criar post |
-| `posts` | DELETE próprio/admin | Autor ou admin pode deletar |
+| `posts` | INSERT autenticado | Autor é a própria usuária; conta nova (<24h) limitada a 5 posts/dia |
+| `posts` | DELETE próprio/mod/admin | Autora, admin ou mod da comunidade pode deletar |
 | `comments` | SELECT público | Todos podem ler comentários |
 | `comments` | INSERT autenticado | Usuário autenticado pode comentar |
-| `comments` | DELETE próprio/admin | Autor ou admin pode deletar |
+| `comments` | DELETE próprio/mod/admin | Autora, admin ou mod da comunidade pode deletar |
+| `communities` | UPDATE mod/admin | Mods editam regras da comunidade |
+| `poll_votes` | SELECT autenticado / INSERT+UPDATE próprio | Votar e trocar o voto |
+| `community_mods` / `community_bans` | Leitura aberta / escrita admin (mods p/ bans) | Gestão de moderação |
 | `likes` | INSERT/DELETE próprio | Usuário pode curtir/descurtir |
 | `follows` | INSERT/DELETE próprio | Usuário pode seguir/deixar de seguir |
 
