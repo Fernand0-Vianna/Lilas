@@ -138,7 +138,8 @@ export default function Post() {
 
   async function saveEdit() {
     if (!editBody.trim()) return
-    await supabase.from('comments').update({ body: editBody.trim() }).eq('id', editingId)
+    const { error } = await supabase.from('comments').update({ body: editBody.trim() }).eq('id', editingId)
+    if (error) return
     setComments(cs => cs.map(x => x.id === editingId ? { ...x, body: editBody.trim() } : x))
     setEditingId(null)
     setEditBody('')

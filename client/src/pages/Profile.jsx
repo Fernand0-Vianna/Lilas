@@ -94,7 +94,7 @@ function ActivityFeed({ userId }) {
         postIds.length
           ? supabase.from('comments').select('body, post_id, user_id, created_at, profiles:user_id(apelido, avatar_url)').in('post_id', postIds).order('created_at', { ascending: false }).limit(20)
           : { data: [] },
-        supabase.from('comments').select('body, post_id, user_id, created_at, profiles:user_id(apelido, avatar_url), posts!inner(author_id)').eq('author_id', userId).order('created_at', { ascending: false }).limit(20)
+        supabase.from('comments').select('body, post_id, user_id, created_at, profiles:user_id(apelido, avatar_url)').eq('author_id', userId).order('created_at', { ascending: false }).limit(20)
       ])
 
       const items = []
@@ -409,15 +409,9 @@ export default function Profile() {
       const webp = await fileToWebP(file, 0.85, 1400)
       const fileName = `${profile.id}/cover_${Date.now()}.webp`
       
-      let uploadRes = await supabase.storage.from('posts').upload(`covers/${fileName}`, webp, { contentType: 'image/webp', upsert: true })
-      let publicUrl = ''
-      if (!uploadRes.error) {
-        publicUrl = supabase.storage.from('posts').getPublicUrl(`covers/${fileName}`).data.publicUrl
-      } else {
-        const altRes = await supabase.storage.from('avatars').upload(`cover_${fileName}`, webp, { contentType: 'image/webp', upsert: true })
-        if (altRes.error) throw new Error(altRes.error.message || uploadRes.error.message)
-        publicUrl = supabase.storage.from('avatars').getPublicUrl(`cover_${fileName}`).data.publicUrl
-      }
+      let uploadRes = await supabase.storage.from('covers').upload(fileName, webp, { contentType: 'image/webp', upsert: true })
+      if (uploadRes.error) throw new Error(uploadRes.error.message)
+      const publicUrl = supabase.storage.from('covers').getPublicUrl(fileName).data.publicUrl
       
       const bustUrl = `${publicUrl}?t=${Date.now()}`
       let updateRes = await supabase.from('profiles').update({ cover_url: bustUrl }).eq('id', profile.id)
