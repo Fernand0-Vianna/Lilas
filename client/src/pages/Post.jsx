@@ -65,6 +65,8 @@ export default function Post() {
   const [isMod, setIsMod] = useState(false)
   const [loading, setLoading] = useState(true)
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
+  const [editingId, setEditingId] = useState(null)
+  const [editBody, setEditBody] = useState('')
 
   useEffect(() => {
     Promise.all([
@@ -134,6 +136,14 @@ export default function Post() {
     setConfirmDeleteId(null)
   }
 
+  async function saveEdit() {
+    if (!editBody.trim()) return
+    await supabase.from('comments').update({ body: editBody.trim() }).eq('id', editingId)
+    setComments(cs => cs.map(x => x.id === editingId ? { ...x, body: editBody.trim() } : x))
+    setEditingId(null)
+    setEditBody('')
+  }
+
   if (loading) return <div className="container" style={{ paddingTop: 24 }}>Carregando...</div>
   if (!post) return <div className="container" style={{ paddingTop: 24 }}>Post não encontrado.</div>
 
@@ -179,18 +189,40 @@ export default function Post() {
                 <span className="avatar">{(c.profiles?.apelido || '?')[0].toUpperCase()}</span>
                 <div style={{ flex: 1 }}>
                   <div className="c-meta">u/{c.profiles?.apelido}</div>
-                  <div className="c-body">{c.body}</div>
-                  <button
-                    className="action"
-                    style={{ fontSize: 11 }}
-                    onClick={() => { setReplyTo(replyTo === c.id ? null : c.id); setReplyBody('') }}
-                  >
-                    <Icon name="comment" size={11} /> Responder
-                  </button>
+                  {editingId === c.id ? (
+                    <div className="compose-row" style={{ marginTop: 4 }}>
+                      <textarea
+                        className="field"
+                        rows={2}
+                        style={{ padding: '11px 14px', border: '1.5px solid var(--border)', borderRadius: 10, outline: 'none', width: '100%' }}
+                        value={editBody}
+                        onChange={e => setEditBody(e.target.value)}
+                        autoFocus
+                      />
+                      <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                        <button className="btn btn-primary btn-sm" onClick={saveEdit}>Salvar</button>
+                        <button className="btn btn-outline btn-sm" onClick={() => setEditingId(null)}>Cancelar</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="c-body">{c.body}</div>
+                  )}
+                  {editingId !== c.id && (
+                    <button
+                      className="action"
+                      style={{ fontSize: 11 }}
+                      onClick={() => { setReplyTo(replyTo === c.id ? null : c.id); setReplyBody('') }}
+                    >
+                      <Icon name="comment" size={11} /> Responder
+                    </button>
+                  )}
                   {replyTo === c.id && replyForm(sendReply, replyBody, setReplyBody, () => setReplyTo(null))}
                 </div>
                 <ReportComment commentId={c.id} />
-                {(isMod || profile?.is_admin || c.author_id === session.user.id) && (
+                {c.author_id === session.user.id && editingId !== c.id && (
+                  <button className="action" title="Editar comentário" onClick={() => { setEditingId(c.id); setEditBody(c.body) }}>✏️</button>
+                )}
+                {(isMod || profile?.is_admin || c.author_id === session.user.id) && editingId !== c.id && (
                   <button className="action" style={{ color: 'var(--danger, #c0392b)' }} onClick={() => setConfirmDeleteId(c.id)}>🗑</button>
                 )}
               </div>
