@@ -131,7 +131,7 @@ export default function PostCard({ post, onDeleted, canModerate }) {
           <div className="post-meta">
             <div className="comm">
               <Link to={`/c/${post.communities?.slug}`} className="comm-name">{post.communities?.name}</Link>
-              <span className="time"> · u/{author?.apelido}</span>
+              <Link to={`/u/${author?.apelido}`} className="comm-name">u/{author?.apelido}</Link>
               <span className="time"> · {timeAgo(post.created_at)}</span>
             </div>
           </div>
