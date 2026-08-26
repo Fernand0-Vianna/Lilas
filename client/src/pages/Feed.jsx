@@ -5,7 +5,7 @@ import { useAuth } from '../lib/auth.jsx'
 import PostCard from '../components/PostCard.jsx'
 
 function hotScore(post) {
-  const score = post.likes?.[0]?.vote ?? 0
+  const score = (post.likes || []).reduce((s, l) => s + (l.vote || 0), 0)
   const order = Math.log10(Math.max(Math.abs(score), 1)) * Math.sign(score)
   return order + (new Date(post.created_at).getTime() / 1000) / 45000
 }

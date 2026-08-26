@@ -68,7 +68,7 @@ export default function PostCard({ post, onDeleted, canModerate }) {
 
   useEffect(() => {
     setAuthor(post.profiles || null)
-    setScore(post.likes?.[0]?.vote ?? 0)
+    setScore((post.likes || []).reduce((s, l) => s + (l.vote || 0), 0))
     setComments(post.comments?.[0]?.count ?? 0)
     Promise.all([
       supabase.from('likes').select('vote').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle(),
