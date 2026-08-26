@@ -115,6 +115,7 @@ export default function Community() {
   const [posts, setPosts] = useState([])
   const [joined, setJoined] = useState(false)
   const [isMod, setIsMod] = useState(false)
+  const [showModPanel, setShowModPanel] = useState(false)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [toast, setToast] = useState('')
