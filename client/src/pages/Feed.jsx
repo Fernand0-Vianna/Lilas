@@ -56,9 +56,17 @@ export default function Feed() {
   const [tab, setTab] = useState('hot')
 
   const sorted = [...posts]
-  if (tab === 'top') sorted.sort((a, b) => (b.likes?.[0]?.vote || 0) - (a.likes?.[0]?.vote || 0))
+  if (tab === 'top') sorted.sort((a, b) => {
+    const sa = (a.likes || []).reduce((s, l) => s + (l.vote || 0), 0)
+    const sb = (b.likes || []).reduce((s, l) => s + (l.vote || 0), 0)
+    return sb - sa
+  })
   if (tab === 'new') sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
   if (tab === 'hot') sorted.sort((a, b) => hotScore(b) - hotScore(a))
+
+  const visible = tab === 'top'
+    ? sorted.filter(p => (p.likes || []).reduce((s, l) => s + (l.vote || 0), 0) > 0)
+    : sorted
 
   return (
     <div className="container">
@@ -103,8 +111,8 @@ export default function Feed() {
             <button className={tab === 'top' ? 'active' : ''} onClick={() => setTab('top')}>Mais votado</button>
           </div>
           {loading ? <p style={{ color: 'var(--muted)' }}>Carregando...</p> :
-            sorted.map(p => <PostCard key={p.id} post={p} onDeleted={() => removePost(p.id)} />)}
-          {!loading && sorted.length === 0 && (
+            visible.map(p => <PostCard key={p.id} post={p} onDeleted={() => removePost(p.id)} />)}
+          {!loading && visible.length === 0 && (
             <div className="card" style={{ textAlign: 'center', padding: 40 }}>
               <h3>{q ? 'Nada encontrado' : 'Nada por aqui ainda'}</h3>
               <p style={{ color: 'var(--muted)', margin: '8px 0 16px' }}>{q ? 'Tente outra palavra-chave.' : 'Seja a primeira a compartilhar algo inspirador.'}</p>
