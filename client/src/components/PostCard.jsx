@@ -62,6 +62,7 @@ export default function PostCard({ post, onDeleted, canModerate }) {
   const [reporting, setReporting] = useState(false)
   const [reason, setReason] = useState('')
   const [reported, setReported] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [author, setAuthor] = useState(null)
 
   useEffect(() => {
@@ -103,11 +104,8 @@ export default function PostCard({ post, onDeleted, canModerate }) {
   }
 
   async function deletePost() {
-    const ok = window.confirm(canModerate && post.author_id !== session.user.id
-      ? 'Remover esta publicação como moderação?'
-      : 'Excluir esta publicação?')
-    if (!ok) return
     await supabase.from('posts').delete().eq('id', post.id)
+    setConfirmDelete(false)
     if (onDeleted) onDeleted()
     else navigate('/')
   }
@@ -128,15 +126,18 @@ export default function PostCard({ post, onDeleted, canModerate }) {
       </div>
       <div className="post-main">
         <div className="post-head">
+          <Link to={`/u/${author?.apelido}`} className="post-author-link">
+            <span className="avatar-xs">{author?.avatar_url ? <img src={author.avatar_url} alt="" /> : (author?.apelido || '?')[0].toUpperCase()}</span>
+            <span className="post-author-name">@{author?.apelido}</span>
+          </Link>
           <div className="post-meta">
             <div className="comm">
-              <Link to={`/c/${post.communities?.slug}`} className="comm-name">{post.communities?.name}</Link>
-              <Link to={`/u/${author?.apelido}`} className="comm-name">u/{author?.apelido}</Link>
+              <Link to={`/c/${post.communities?.slug}`} className="comm-badge">{post.communities?.name}</Link>
               <span className="time"> · {timeAgo(post.created_at)}</span>
             </div>
           </div>
           {canDelete && (
-            <button className="post-more" title={canModerate && post.author_id !== session.user.id ? 'Remover (moderação)' : 'Excluir publicação'} onClick={deletePost}>
+            <button className="post-more" title={canModerate && post.author_id !== session.user.id ? 'Remover (moderação)' : 'Excluir publicação'} onClick={() => setConfirmDelete(true)}>
               <Icon name="more" size={16} />
             </button>
           )}
@@ -194,6 +195,30 @@ export default function PostCard({ post, onDeleted, canModerate }) {
           </span>
         </div>
       </div>
+
+      {confirmDelete && (
+        <div className="modal-overlay" onClick={() => setConfirmDelete(false)}>
+          <div className="modal-sheet modal-confirm" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{canModerate && post.author_id !== session.user.id ? 'Remover publicação?' : 'Excluir publicação?'}</h3>
+              <button className="modal-close" onClick={() => setConfirmDelete(false)}><Icon name="x-close" size={20} /></button>
+            </div>
+            <div className="modal-body" style={{ textAlign: 'center', padding: '20px 16px 24px' }}>
+              <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 20, lineHeight: 1.5 }}>
+                {canModerate && post.author_id !== session.user.id
+                  ? 'Tem certeza que deseja remover esta publicação como moderação?'
+                  : 'Tem certeza que deseja excluir esta publicação? Essa ação não pode ser desfeita.'}
+              </p>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                <button className="btn btn-outline" onClick={() => setConfirmDelete(false)}>Cancelar</button>
+                <button className="btn btn-danger" onClick={deletePost}>
+                  {canModerate && post.author_id !== session.user.id ? 'Remover' : 'Excluir'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </article>
   )
 }

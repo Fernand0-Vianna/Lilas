@@ -24,8 +24,9 @@ function useFeed(q) {
       .order('created_at', { ascending: false })
       .limit(50)
     if (q) query = query.ilike('title', `%${q}%`)
-    const usersQuery = q
-      ? supabase.from('profiles').select('id, apelido, avatar_url, bio').ilike('apelido', `%${q}%`).limit(10)
+    const userSearch = q ? q.replace(/^[uU@\/]+/, '').trim() : ''
+    const usersQuery = userSearch
+      ? supabase.from('profiles').select('id, apelido, avatar_url, bio').ilike('apelido', `%${userSearch}%`).limit(10).then(r => r, () => ({ data: [] }))
       : Promise.resolve({ data: [] })
     Promise.all([
       query,
@@ -35,6 +36,11 @@ function useFeed(q) {
       setPosts(p.data || [])
       setCommunities(c.data || [])
       setUsers(u.data || [])
+      setLoading(false)
+    }).catch(() => {
+      setPosts([])
+      setCommunities([])
+      setUsers([])
       setLoading(false)
     })
   }, [q])
