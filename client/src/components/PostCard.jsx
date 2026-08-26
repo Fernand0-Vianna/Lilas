@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
 import { compact, timeAgo } from '../lib/format.js'
 import Icon from './Icons.jsx'
+import ConfirmModal from './ConfirmModal.jsx'
 
 function Poll({ post }) {
   const { session } = useAuth()
@@ -63,6 +64,7 @@ export default function PostCard({ post, onDeleted, canModerate }) {
   const [reason, setReason] = useState('')
   const [reported, setReported] = useState(false)
   const [author, setAuthor] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   useEffect(() => {
     setAuthor(post.profiles || null)
@@ -102,12 +104,9 @@ export default function PostCard({ post, onDeleted, canModerate }) {
     setReporting(false)
   }
 
-  async function deletePost() {
-    const ok = window.confirm(canModerate && post.author_id !== session.user.id
-      ? 'Remover esta publicação como moderação?'
-      : 'Excluir esta publicação?')
-    if (!ok) return
+  async function doDeletePost() {
     await supabase.from('posts').delete().eq('id', post.id)
+    setConfirmDelete(false)
     if (onDeleted) onDeleted()
     else navigate('/')
   }
@@ -136,7 +135,7 @@ export default function PostCard({ post, onDeleted, canModerate }) {
             </div>
           </div>
           {canDelete && (
-            <button className="post-more" title={canModerate && post.author_id !== session.user.id ? 'Remover (moderação)' : 'Excluir publicação'} onClick={deletePost}>
+            <button className="post-more" title={canModerate && post.author_id !== session.user.id ? 'Remover (moderação)' : 'Excluir publicação'} onClick={() => setConfirmDelete(true)}>
               <Icon name="more" size={16} />
             </button>
           )}
@@ -157,7 +156,7 @@ export default function PostCard({ post, onDeleted, canModerate }) {
         ) : (
           <Link to={`/post/${post.id}`} className="post-link">
             <h3 className="post-title">
-              {post.tag && <span className="tag-chip">{post.tag}</span>}
+              {post.tag && <Link to={`/?q=${encodeURIComponent(post.tag)}`} className="tag-chip" onClick={e => e.stopPropagation()}>{post.tag}</Link>}
               {post.title}
             </h3>
             {post.body && <p className="post-body">{post.body}</p>}
@@ -172,7 +171,7 @@ export default function PostCard({ post, onDeleted, canModerate }) {
           <button className={`action ${saved ? 'liked' : ''}`} title="Salvar" onClick={toggleSave}>
             <Icon name="bookmark" size={14} filled={saved} />
           </button>
-          <span className="action report">
+          <span className="report">
             <button className="action" title="Denunciar" onClick={() => setReporting(o => !o)}>
               <Icon name="flag" size={14} />
             </button>
@@ -194,6 +193,18 @@ export default function PostCard({ post, onDeleted, canModerate }) {
           </span>
         </div>
       </div>
+      {confirmDelete && (
+        <ConfirmModal
+          title={canModerate && post.author_id !== session.user.id ? 'Remover publicação?' : 'Excluir publicação?'}
+          message={canModerate && post.author_id !== session.user.id
+            ? 'Tem certeza que deseja remover esta publicação como moderação?'
+            : 'Tem certeza que deseja excluir esta publicação?'}
+          confirmLabel={canModerate && post.author_id !== session.user.id ? 'Remover' : 'Excluir'}
+          danger
+          onConfirm={doDeletePost}
+          onClose={() => setConfirmDelete(false)}
+        />
+      )}
     </article>
   )
 }

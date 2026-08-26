@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
 import { compact, timeAgo } from '../lib/format.js'
 import PostCard from '../components/PostCard.jsx'
+import ConfirmModal from '../components/ConfirmModal.jsx'
 import BottomNav from '../components/BottomNav.jsx'
 import Icon from '../components/Icons.jsx'
 import logo from '../assets/lilas-logo.svg'
@@ -86,16 +87,27 @@ function ActivityFeed({ userId }) {
     const fetchActivity = async () => {
       const { data: posts } = await supabase.from('posts').select('id').eq('author_id', userId)
       const postIds = (posts || []).map(p => p.id)
-      if (!postIds.length) { setActivity([]); setLoading(false); return }
 
-      const [likesR, commentsR] = await Promise.all([
-        supabase.from('likes').select('vote, post_id, user_id, created_at:post_id').in('post_id', postIds).order('post_id', { ascending: false }).limit(20),
-        supabase.from('comments').select('body, post_id, user_id, created_at, profiles:user_id(apelido, avatar_url)').in('post_id', postIds).order('created_at', { ascending: false }).limit(20)
+      const [commentsOnMyPosts, myComments] = await Promise.all([
+        postIds.length
+          ? supabase.from('comments').select('body, post_id, user_id, created_at, profiles:user_id(apelido, avatar_url)').in('post_id', postIds).order('created_at', { ascending: false }).limit(20)
+          : { data: [] },
+        supabase.from('comments').select('body, post_id, user_id, created_at, profiles:user_id(apelido, avatar_url), posts!inner(author_id)').eq('author_id', userId).order('created_at', { ascending: false }).limit(20)
       ])
 
       const items = []
-      ;(commentsR.data || []).forEach(c => {
-        items.push({ type: 'comment', postId: c.post_id, user: c.profiles, body: c.body, created_at: c.created_at })
+      const seen = new Set()
+      ;(commentsOnMyPosts.data || []).forEach(c => {
+        const key = `${c.user_id}-${c.post_id}-${c.created_at}`
+        if (seen.has(key)) return
+        seen.add(key)
+        items.push({ type: 'comment', postId: c.post_id, user: c.profiles, body: c.body, created_at: c.created_at, isOwn: c.user_id === userId })
+      })
+      ;(myComments.data || []).forEach(c => {
+        const key = `${c.user_id}-${c.post_id}-${c.created_at}`
+        if (seen.has(key)) return
+        seen.add(key)
+        items.push({ type: 'comment', postId: c.post_id, user: c.profiles, body: c.body, created_at: c.created_at, isOwn: true })
       })
       items.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
       setActivity(items.slice(0, 15))
@@ -113,7 +125,13 @@ function ActivityFeed({ userId }) {
         <div key={i} className="activity-item">
           <span className="avatar-xs">{item.user?.apelido?.[0]?.toUpperCase() || '?'}</span>
           <div className="activity-body">
-            <p><b>{item.user?.apelido}</b> comentou em <Link to={`/post/${item.postId}`}>um post</Link></p>
+            <p>
+              {item.isOwn ? (
+                <>Você comentou em <Link to={`/post/${item.postId}`}>um post</Link></>
+              ) : (
+                <><b>{item.user?.apelido}</b> comentou em <Link to={`/post/${item.postId}`}>um post</Link></>
+              )}
+            </p>
             <p className="activity-preview">{item.body?.slice(0, 120)}{item.body?.length > 120 ? '...' : ''}</p>
             <span className="activity-time">{timeAgo(item.created_at)}</span>
           </div>
@@ -292,6 +310,7 @@ export default function Profile() {
   const [editOpen, setEditOpen] = useState(false)
   const [modal, setModal] = useState(null)
   const [toast, setToast] = useState('')
+  const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false)
   const avatarInputRef = useRef()
   const coverInputRef = useRef()
 
@@ -411,10 +430,9 @@ export default function Profile() {
     }
   }
 
-  async function deleteAccount() {
-    if (!window.confirm('Tem certeza? Sua conta, posts, curtidas e seguidores serão excluídos permanentemente.')) return
-    if (!window.confirm('Confirme: esta ação não pode ser desfeita.')) return
+  async function doDeleteAccount() {
     await supabase.rpc('delete_account')
+    setConfirmDeleteAccount(false)
     await signOut()
     navigate('/login')
   }
@@ -607,10 +625,20 @@ export default function Profile() {
           onAvatarUpload={handleAvatarUpload}
           onCoverUpload={handleCoverUpload}
           onSignOut={async () => { setEditOpen(false); await signOut(); navigate('/login') }}
-          onDeleteAccount={deleteAccount}
+          onDeleteAccount={() => setConfirmDeleteAccount(true)}
         />
       )}
       {modal && <FollowersModal userId={profile.id} type={modal} onClose={() => setModal(null)} />}
+      {confirmDeleteAccount && (
+        <ConfirmModal
+          title="Excluir conta?"
+          message="Sua conta, posts, curtidas e seguidores serão excluídos permanentemente. Esta ação não pode ser desfeita."
+          confirmLabel="Excluir conta"
+          danger
+          onConfirm={doDeleteAccount}
+          onClose={() => setConfirmDeleteAccount(false)}
+        />
+      )}
       {toast && <div className="toast">{toast}</div>}
 
       <BottomNav />

@@ -49,6 +49,8 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .btn-outline { border: 1px solid var(--border); color: var(--text); background: var(--card); }
 .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
 .btn-block { width: 100%; }
+.btn-danger { background: var(--danger, #d6336c); color: #fff; }
+.btn-danger:hover { background: #c0254f; }
 
 /* ---------- Topbar ---------- */
 .topbar {
@@ -121,6 +123,28 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .avatar-dropdown button { color: var(--danger, #d6336c); }
 .avatar { width: 28px; height: 28px; border-radius: 50%; background: #dcd2f5; display: grid; place-items: center; font-weight: 700; font-size: 12px; color: var(--primary-dark); }
 
+/* Mobile Topbar Search & Avatar Helpers */
+.topbar-search-trigger {
+  display: none; background: none; border: none; color: var(--muted); cursor: pointer;
+  padding: 8px; border-radius: 50%; place-items: center; transition: background 0.12s;
+}
+.topbar-search-trigger:hover { background: var(--bg); color: var(--text); }
+.avatar-link.mobile-only { display: none; }
+.avatar-link.desktop-only { display: block; }
+.mobile-search-bar { display: flex; align-items: center; width: 100%; gap: 8px; }
+.mobile-search-bar .btn-back {
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; transition: background 0.12s;
+}
+.mobile-search-bar .btn-back:hover { background: var(--bg); }
+.mobile-search-form-top { flex: 1; }
+.mobile-search-form-top input {
+  width: 100%; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--bg); font-size: 14px; outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+}
+.mobile-search-form-top input:focus { border-color: var(--primary); background: #fff; box-shadow: 0 0 0 3px rgba(124, 92, 224, 0.1); }
+.search-clear-btn-top { background: none; border: none; color: var(--muted); cursor: pointer; padding: 6px; display: grid; place-items: center; }
+
 /* ---------- Layout ---------- */
 .layout { display: grid; grid-template-columns: 200px 1fr 280px; gap: 20px; padding: 16px 0; align-items: start; }
 .rail { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; position: sticky; top: 64px; }
@@ -143,7 +167,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 /* ---------- Cards ---------- */
 .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
 .post-card {
-  border-radius: var(--radius); display: flex; gap: 0; padding: 0; overflow: hidden;
+  border-radius: var(--radius); display: flex; gap: 0; padding: 0; overflow: visible;
   transition: box-shadow 0.15s;
 }
 .post-card:hover { box-shadow: var(--shadow); }
@@ -184,7 +208,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .post-img { width: 100%; border-radius: 8px; max-height: 360px; object-fit: cover; margin-bottom: 8px; }
 .post-actions {
   display: flex; gap: 2px; border-top: 1px solid var(--border);
-  padding-top: 4px; margin-top: 4px;
+  padding-top: 6px; margin-top: 6px; padding-bottom: 8px;
 }
 .action {
   display: inline-flex; align-items: center; gap: 4px; padding: 5px 6px;
@@ -211,8 +235,10 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   display: inline-flex; align-items: center; vertical-align: middle;
   background: var(--primary-soft); color: var(--primary-dark);
   border-radius: 999px; padding: 1px 8px; margin-right: 6px;
-  font-size: 10px; font-weight: 700;
+  font-size: 10px; font-weight: 700; cursor: pointer;
+  transition: background 0.12s;
 }
+.tag-chip:hover { background: #ddd4f5; }
 .tag-chip.danger { background: #fff0f4; color: #d6336c; }
 .tag-chip button { font-size: 12px; line-height: 1; color: inherit; }
 .link-card {
@@ -748,6 +774,10 @@ textarea { width: 100%; resize: vertical; }
   .topbar-nav a:not(.avatar-link) { display: none; }
   .topbar-bell { display: none; }
   .topbar-inner { gap: 8px; padding: 0 12px; }
+  .search-desktop { display: none !important; }
+  .topbar-search-trigger { display: grid; margin-left: auto; }
+  .avatar-link.desktop-only { display: none !important; }
+  .avatar-link.mobile-only { display: block !important; }
   .search { max-width: none; }
   .field input { font-size: 16px; }
   .login-card { padding: 24px 16px; }

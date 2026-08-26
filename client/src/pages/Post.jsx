@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
 import PostCard from '../components/PostCard.jsx'
+import ConfirmModal from '../components/ConfirmModal.jsx'
 import { compact } from '../lib/format.js'
 import Icon from '../components/Icons.jsx'
 
@@ -63,6 +64,7 @@ export default function Post() {
   const [replyBody, setReplyBody] = useState('')
   const [isMod, setIsMod] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
 
   useEffect(() => {
     Promise.all([
@@ -124,11 +126,12 @@ export default function Post() {
     setReplyTo(null)
   }
 
-  async function deleteComment(commentId) {
-    if (!window.confirm('Excluir este comentário? Respostas dele também serão excluídas.')) return
+  async function doDeleteComment() {
+    const commentId = confirmDeleteId
     await supabase.from('comments').delete().eq('id', commentId)
     const ids = new Set([commentId, ...descendants(commentId).map(c => c.id)])
     setComments(cs => cs.filter(x => !ids.has(x.id)))
+    setConfirmDeleteId(null)
   }
 
   if (loading) return <div className="container" style={{ paddingTop: 24 }}>Carregando...</div>
@@ -188,7 +191,7 @@ export default function Post() {
                 </div>
                 <ReportComment commentId={c.id} />
                 {(isMod || profile?.is_admin || c.author_id === session.user.id) && (
-                  <button className="action" style={{ color: 'var(--danger, #c0392b)' }} onClick={() => deleteComment(c.id)}>🗑</button>
+                  <button className="action" style={{ color: 'var(--danger, #c0392b)' }} onClick={() => setConfirmDeleteId(c.id)}>🗑</button>
                 )}
               </div>
             </div>
@@ -198,6 +201,16 @@ export default function Post() {
           )}
         </div>
       </div>
+      {confirmDeleteId && (
+        <ConfirmModal
+          title="Excluir comentário?"
+          message="Respostas deste comentário também serão excluídas."
+          confirmLabel="Excluir"
+          danger
+          onConfirm={doDeleteComment}
+          onClose={() => setConfirmDeleteId(null)}
+        />
+      )}
     </div>
   )
 }
