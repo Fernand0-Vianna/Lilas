@@ -62,6 +62,17 @@ export default function Feed() {
         </aside>
 
         <main className="main">
+          {/* Mobile Emergency / Support Banner */}
+          <aside className="mobile-help-banner" aria-label="Central de Atendimento">
+            <div className="mobile-help-content">
+              <span className="mobile-help-badge">Apoio 24h</span>
+              <span className="mobile-help-text">Precisa de ajuda? Ligue <strong>180</strong> (gratuito)</span>
+            </div>
+            <a href="tel:180" className="btn mobile-help-btn" title="Ligar para a Central 180">
+              Ligar 180
+            </a>
+          </aside>
+
           {q && <h2 style={{ fontSize: 18, margin: '16px 0' }}>Resultados para "{q}"</h2>}
           <div className="feed-tabs">
             <button className={tab === 'hot' ? 'active' : ''} onClick={() => setTab('hot')}>Em alta</button>

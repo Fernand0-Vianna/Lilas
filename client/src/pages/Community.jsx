@@ -174,7 +174,7 @@ export default function Community() {
             </button>
           </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 16, marginTop: 16, alignItems: 'start' }}>
+        <div className="comm-layout-grid">
           <div>
             {(isMod || profile?.is_admin) && (
               <div style={{ marginBottom: 12, textAlign: 'right' }}>

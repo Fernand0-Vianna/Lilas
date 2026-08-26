@@ -177,12 +177,20 @@ export default function PostCard({ post, onDeleted, canModerate }) {
               <Icon name="flag" size={14} />
             </button>
             {reporting && !reported && (
-              <span className="report-pop">
-                <input placeholder="Motivo" value={reason} onChange={e => setReason(e.target.value)} />
-                <button className="btn btn-primary report-btn" onClick={sendReport}>Enviar</button>
-              </span>
+              <div className="report-pop">
+                <input
+                  placeholder="Motivo da denúncia..."
+                  value={reason}
+                  onChange={e => setReason(e.target.value)}
+                  autoFocus
+                />
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <button className="btn btn-primary report-btn" onClick={sendReport}>Enviar</button>
+                  <button className="btn btn-outline report-btn" onClick={() => setReporting(false)}>✕</button>
+                </div>
+              </div>
             )}
-            {reported && <span className="report-ok">Enviado.</span>}
+            {reported && <span className="report-ok">Denúncia enviada.</span>}
           </span>
         </div>
       </div>

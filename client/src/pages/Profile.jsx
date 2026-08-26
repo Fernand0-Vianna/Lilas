@@ -123,7 +123,28 @@ function ActivityFeed({ userId }) {
   )
 }
 
-function EditModal({ profile, onClose, onSave, onAvatarUpload }) {
+function fileToWebP(file, quality = 0.85, maxSize = 1200) {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      const scale = Math.min(1, maxSize / Math.max(img.naturalWidth, img.naturalHeight))
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.round(img.naturalWidth * scale)
+      canvas.height = Math.round(img.naturalHeight * scale)
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+      canvas.toBlob(b => {
+        URL.revokeObjectURL(url)
+        if (b) resolve(b)
+        else reject(new Error('Não foi possível processar a imagem.'))
+      }, 'image/webp', quality)
+    }
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Arquivo inválido.')) }
+    img.src = url
+  })
+}
+
+function EditModal({ profile, onClose, onSave, onAvatarUpload, onCoverUpload, onSignOut, onDeleteAccount }) {
   const [apelido, setApelido] = useState(profile.apelido || '')
   const [bio, setBio] = useState(profile.bio || '')
   const [pw1, setPw1] = useState('')
@@ -131,7 +152,8 @@ function EditModal({ profile, onClose, onSave, onAvatarUpload }) {
   const [msg, setMsg] = useState('')
   const [pwMsg, setPwMsg] = useState('')
   const [tab, setTab] = useState('profile')
-  const fileRef = useRef()
+  const avatarFileRef = useRef()
+  const coverFileRef = useRef()
 
   async function handleSave() {
     setMsg('')
@@ -155,13 +177,18 @@ function EditModal({ profile, onClose, onSave, onAvatarUpload }) {
     setPw1(''); setPw2('')
   }
 
-  function handleAvatarClick() { fileRef.current?.click() }
-
-  async function handleFileChange(e) {
+  async function handleAvatarChange(e) {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 2 * 1024 * 1024) { setMsg('Imagem muito grande (máx 2MB).'); return }
+    if (file.size > 5 * 1024 * 1024) { setMsg('Imagem muito grande (máx 5MB).'); return }
     await onAvatarUpload(file)
+  }
+
+  async function handleCoverChange(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) { setMsg('Imagem muito grande (máx 5MB).'); return }
+    await onCoverUpload(file)
   }
 
   return (
@@ -172,20 +199,42 @@ function EditModal({ profile, onClose, onSave, onAvatarUpload }) {
           <button className="modal-close" onClick={onClose}><Icon name="x-close" size={20} /></button>
         </div>
         <div className="modal-tabs">
-          <button className={tab === 'profile' ? 'active' : ''} onClick={() => setTab('profile')}>Perfil</button>
-          <button className={tab === 'security' ? 'active' : ''} onClick={() => setTab('security')}>Segurança</button>
+          <button type="button" className={tab === 'profile' ? 'active' : ''} onClick={() => setTab('profile')}>Perfil & Fotos</button>
+          <button type="button" className={tab === 'security' ? 'active' : ''} onClick={() => setTab('security')}>Conta & Segurança</button>
         </div>
         <div className="modal-body">
           {tab === 'profile' ? (
             <>
-              <div className="edit-avatar-section">
-                <div className="edit-avatar-wrap" onClick={handleAvatarClick}>
-                  {profile.avatar_url ? <img src={profile.avatar_url} alt="" className="edit-avatar-img" /> : <span className="edit-avatar-letter">{(profile.apelido || '?')[0].toUpperCase()}</span>}
-                  <div className="edit-avatar-overlay"><Icon name="camera" size={20} /></div>
+              <div className="edit-photos-section" style={{ display: 'flex', gap: 16, justifyContent: 'center', alignItems: 'center', margin: '8px 0 16px', flexWrap: 'wrap' }}>
+                <div className="edit-avatar-section" style={{ margin: 0 }}>
+                  <div className="edit-avatar-wrap" onClick={() => avatarFileRef.current?.click()} title="Trocar foto de perfil">
+                    {profile.avatar_url ? <img src={profile.avatar_url} alt="" className="edit-avatar-img" /> : <span className="edit-avatar-letter">{(profile.apelido || '?')[0].toUpperCase()}</span>}
+                    <div className="edit-avatar-overlay"><Icon name="camera" size={20} /></div>
+                  </div>
+                  <input ref={avatarFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarChange} />
+                  <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: 4 }} onClick={() => avatarFileRef.current?.click()}>Foto de perfil</button>
                 </div>
-                <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
-                <button className="btn btn-ghost btn-sm" onClick={handleAvatarClick}>Trocar foto</button>
+
+                <div className="edit-cover-section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <div
+                    className="edit-cover-preview"
+                    onClick={() => coverFileRef.current?.click()}
+                    style={{
+                      width: 120, height: 72, borderRadius: 10, cursor: 'pointer', overflow: 'hidden',
+                      background: (profile.cover_url || profile.banner_url) ? `url(${profile.cover_url || profile.banner_url}) center/cover` : 'linear-gradient(135deg, var(--primary), var(--primary-dark))',
+                      display: 'grid', placeItems: 'center', border: '1.5px solid var(--border)', position: 'relative'
+                    }}
+                    title="Trocar imagem de fundo (capa)"
+                  >
+                    <div className="edit-cover-overlay" style={{ background: 'rgba(0,0,0,0.3)', width: '100%', height: '100%', display: 'grid', placeItems: 'center', color: '#fff' }}>
+                      <Icon name="camera" size={18} />
+                    </div>
+                  </div>
+                  <input ref={coverFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleCoverChange} />
+                  <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: 4 }} onClick={() => coverFileRef.current?.click()}>Foto de fundo</button>
+                </div>
               </div>
+
               <div className="field">
                 <label>Apelido</label>
                 <input value={apelido} onChange={e => setApelido(e.target.value)} placeholder="nome_fantasia" />
@@ -195,7 +244,7 @@ function EditModal({ profile, onClose, onSave, onAvatarUpload }) {
                 <textarea rows={3} value={bio} onChange={e => setBio(e.target.value)} placeholder="Conte um pouco sobre você..." />
               </div>
               {msg && <p className={msg.includes('atualizado') ? 'ok' : 'error'}>{msg}</p>}
-              <button className="btn btn-primary btn-block" onClick={handleSave}>Salvar perfil</button>
+              <button type="button" className="btn btn-primary btn-block" onClick={handleSave}>Salvar perfil</button>
             </>
           ) : (
             <>
@@ -209,7 +258,16 @@ function EditModal({ profile, onClose, onSave, onAvatarUpload }) {
                 <input type="password" placeholder="Confirme a senha" value={pw2} onChange={e => setPw2(e.target.value)} />
               </div>
               {pwMsg && <p className={pwMsg.includes('atualizada') ? 'ok' : 'error'}>{pwMsg}</p>}
-              <button className="btn btn-primary btn-block" onClick={handleChangePw}>Salvar senha</button>
+              <button type="button" className="btn btn-primary btn-block" onClick={handleChangePw}>Salvar nova senha</button>
+
+              <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button type="button" className="btn btn-outline btn-block" onClick={onSignOut}>
+                  Sair da conta
+                </button>
+                <button type="button" className="btn btn-ghost btn-block" style={{ color: 'var(--danger, #d6336c)' }} onClick={onDeleteAccount}>
+                  Excluir conta definitivamente
+                </button>
+              </div>
             </>
           )}
         </div>
@@ -235,6 +293,7 @@ export default function Profile() {
   const [modal, setModal] = useState(null)
   const [toast, setToast] = useState('')
   const avatarInputRef = useRef()
+  const coverInputRef = useRef()
 
   const showToast = useCallback((msg) => {
     setToast(msg)
@@ -293,17 +352,63 @@ export default function Profile() {
   }
 
   async function handleAvatarUpload(file) {
-    const ext = file.name.split('.').pop()
-    const path = `${profile.id}/avatar.${ext}`
-    const { error: upErr } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
-    if (upErr) { showToast('Erro ao enviar imagem.'); return }
-    const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
-    const publicUrl = urlData?.publicUrl
-    if (!publicUrl) { showToast('Erro ao obter URL da imagem.'); return }
-    await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', profile.id)
-    setProfile(p => ({ ...p, avatar_url: publicUrl }))
-    await refreshProfile()
-    showToast('Foto atualizada!')
+    try {
+      showToast('Enviando foto de perfil...')
+      const webp = await fileToWebP(file, 0.85, 600)
+      const fileName = `${profile.id}/avatar_${Date.now()}.webp`
+      
+      let uploadRes = await supabase.storage.from('posts').upload(`avatars/${fileName}`, webp, { contentType: 'image/webp', upsert: true })
+      let publicUrl = ''
+      if (!uploadRes.error) {
+        publicUrl = supabase.storage.from('posts').getPublicUrl(`avatars/${fileName}`).data.publicUrl
+      } else {
+        const altRes = await supabase.storage.from('avatars').upload(fileName, webp, { contentType: 'image/webp', upsert: true })
+        if (altRes.error) throw new Error(altRes.error.message || uploadRes.error.message)
+        publicUrl = supabase.storage.from('avatars').getPublicUrl(fileName).data.publicUrl
+      }
+      
+      const bustUrl = `${publicUrl}?t=${Date.now()}`
+      const { error: dbErr } = await supabase.from('profiles').update({ avatar_url: bustUrl }).eq('id', profile.id)
+      if (dbErr) throw dbErr
+      
+      setProfile(p => ({ ...p, avatar_url: bustUrl }))
+      await refreshProfile()
+      showToast('Foto de perfil atualizada!')
+    } catch (err) {
+      console.error(err)
+      showToast(`Erro ao atualizar foto: ${err.message || 'Tente novamente.'}`)
+    }
+  }
+
+  async function handleCoverUpload(file) {
+    try {
+      showToast('Enviando imagem de capa...')
+      const webp = await fileToWebP(file, 0.85, 1400)
+      const fileName = `${profile.id}/cover_${Date.now()}.webp`
+      
+      let uploadRes = await supabase.storage.from('posts').upload(`covers/${fileName}`, webp, { contentType: 'image/webp', upsert: true })
+      let publicUrl = ''
+      if (!uploadRes.error) {
+        publicUrl = supabase.storage.from('posts').getPublicUrl(`covers/${fileName}`).data.publicUrl
+      } else {
+        const altRes = await supabase.storage.from('avatars').upload(`cover_${fileName}`, webp, { contentType: 'image/webp', upsert: true })
+        if (altRes.error) throw new Error(altRes.error.message || uploadRes.error.message)
+        publicUrl = supabase.storage.from('avatars').getPublicUrl(`cover_${fileName}`).data.publicUrl
+      }
+      
+      const bustUrl = `${publicUrl}?t=${Date.now()}`
+      let updateRes = await supabase.from('profiles').update({ cover_url: bustUrl }).eq('id', profile.id)
+      if (updateRes.error) {
+        updateRes = await supabase.from('profiles').update({ banner_url: bustUrl }).eq('id', profile.id)
+      }
+      
+      setProfile(p => ({ ...p, cover_url: bustUrl, banner_url: bustUrl }))
+      await refreshProfile()
+      showToast('Foto de fundo atualizada!')
+    } catch (err) {
+      console.error(err)
+      showToast(`Erro ao atualizar capa: ${err.message || 'Tente novamente.'}`)
+    }
   }
 
   async function deleteAccount() {
@@ -324,6 +429,7 @@ export default function Profile() {
   }, [tab, session.user.id])
 
   if (loading) return <div className="container" style={{ paddingTop: 24 }}>Carregando...</div>
+  if (!notFound && !profile) return <div className="container" style={{ paddingTop: 24 }}>Carregando...</div>
   if (notFound) return <div className="container" style={{ paddingTop: 24 }}>Usuário não encontrado.</div>
 
   const isMe = profile.id === session.user.id
@@ -335,18 +441,20 @@ export default function Profile() {
     <div className="profile-page">
       <header className="profile-topbar">
         <div className="profile-topbar-inner">
+          <button type="button" className="profile-back-btn" onClick={() => navigate(-1)} aria-label="Voltar" title="Voltar">
+            <Icon name="chevron-left" size={20} />
+          </button>
           <Link to="/" className="profile-logo">
             <img src={logo} alt="Lilás" className="logo-img" />
             Lilás
           </Link>
-          <Link to="/" className="profile-back">
-            <Icon name="chevron-left" size={15} /> Voltar
-          </Link>
           <span className="profile-topbar-title">{isMe ? 'Meu perfil' : `u/${profile.apelido}`}</span>
-          {isMe && (
-            <button className="profile-gear" onClick={() => setEditOpen(true)}>
-              <Icon name="gear" size={22} />
+          {isMe ? (
+            <button className="profile-gear" onClick={() => setEditOpen(true)} title="Configurações e editar perfil">
+              <Icon name="gear" size={20} />
             </button>
+          ) : (
+            <div className="profile-topbar-spacer" />
           )}
           <Link to="/perfil" className="profile-topbar-user">
             <span className="avatar">{profile.avatar_url ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : initial}</span>
@@ -356,7 +464,35 @@ export default function Profile() {
       </header>
 
       <div className="profile-hero">
-        <div className="profile-cover" />
+        <div
+          className="profile-cover"
+          style={(profile.cover_url || profile.banner_url) ? {
+            backgroundImage: `url(${profile.cover_url || profile.banner_url})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center'
+          } : undefined}
+        >
+          {isMe && (
+            <>
+              <button
+                type="button"
+                className="cover-upload-btn"
+                onClick={() => coverInputRef.current?.click()}
+                title="Trocar foto de fundo (capa)"
+              >
+                <Icon name="camera" size={15} />
+                <span>Trocar capa</span>
+              </button>
+              <input
+                ref={coverInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleCoverUpload(f) }}
+              />
+            </>
+          )}
+        </div>
         <div className="container profile-identity-wrap">
           <div className="profile-identity">
             <div className="profile-avatar-wrap">
@@ -364,7 +500,7 @@ export default function Profile() {
                 {profile.avatar_url ? <img src={profile.avatar_url} alt="" /> : initial}
               </span>
               {isMe && (
-                <button className="avatar-upload-btn" onClick={() => avatarInputRef.current?.click()} title="Trocar foto">
+                <button type="button" className="avatar-upload-btn" onClick={() => avatarInputRef.current?.click()} title="Trocar foto de perfil">
                   <Icon name="camera" size={14} />
                 </button>
               )}
@@ -461,20 +597,19 @@ export default function Profile() {
             </div>
           </div>
         )}
-
-        {isMe && (
-          <div className="profile-danger-zone">
-            <button className="btn btn-ghost btn-sm" onClick={async () => { await signOut(); navigate('/login') }}>
-              Sair da conta
-            </button>
-            <button className="btn btn-ghost btn-sm danger" onClick={deleteAccount}>
-              Excluir conta
-            </button>
-          </div>
-        )}
       </div>
 
-      {editOpen && <EditModal profile={profile} onClose={() => setEditOpen(false)} onSave={(a, b) => { setProfile(p => ({ ...p, apelido: a, bio: b })); refreshProfile() }} onAvatarUpload={handleAvatarUpload} />}
+      {editOpen && (
+        <EditModal
+          profile={profile}
+          onClose={() => setEditOpen(false)}
+          onSave={(a, b) => { setProfile(p => ({ ...p, apelido: a, bio: b })); refreshProfile() }}
+          onAvatarUpload={handleAvatarUpload}
+          onCoverUpload={handleCoverUpload}
+          onSignOut={async () => { setEditOpen(false); await signOut(); navigate('/login') }}
+          onDeleteAccount={deleteAccount}
+        />
+      )}
       {modal && <FollowersModal userId={profile.id} type={modal} onClose={() => setModal(null)} />}
       {toast && <div className="toast">{toast}</div>}
 
@@ -482,3 +617,4 @@ export default function Profile() {
     </div>
   )
 }
+
