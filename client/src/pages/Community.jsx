@@ -115,9 +115,9 @@ export default function Community() {
   const [posts, setPosts] = useState([])
   const [joined, setJoined] = useState(false)
   const [isMod, setIsMod] = useState(false)
-  const [showModPanel, setShowModPanel] = useState(false)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [toast, setToast] = useState('')
 
   useEffect(() => {
     setLoading(true)
@@ -145,7 +145,7 @@ export default function Community() {
       setCommunity(c => ({ ...c, members: Math.max(c.members - 1, 0) }))
     } else {
       const { error } = await supabase.from('community_members').insert({ community_id: community.id, user_id: session.user.id })
-      if (error) { window.alert(error.message.includes('community_members_insert') ? 'Você está bloqueada nesta comunidade.' : error.message); return }
+      if (error) { setToast(error.message.includes('community_members_insert') ? 'Você está bloqueada nesta comunidade.' : error.message); setTimeout(() => setToast(''), 3000); return }
       setJoined(true)
       setCommunity(c => ({ ...c, members: c.members + 1 }))
     }
@@ -219,6 +219,7 @@ export default function Community() {
           </aside>
         </div>
       </div>
+      {toast && <div className="toast">{toast}</div>}
     </div>
   )
 }

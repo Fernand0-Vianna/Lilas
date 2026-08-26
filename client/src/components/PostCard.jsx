@@ -63,8 +63,8 @@ export default function PostCard({ post, onDeleted, canModerate }) {
   const [reporting, setReporting] = useState(false)
   const [reason, setReason] = useState('')
   const [reported, setReported] = useState(false)
-  const [author, setAuthor] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [author, setAuthor] = useState(null)
 
   useEffect(() => {
     setAuthor(post.profiles || null)
@@ -127,10 +127,13 @@ export default function PostCard({ post, onDeleted, canModerate }) {
       </div>
       <div className="post-main">
         <div className="post-head">
+          <Link to={`/u/${author?.apelido}`} className="post-author-link">
+            <span className="avatar-xs">{author?.avatar_url ? <img src={author.avatar_url} alt="" /> : (author?.apelido || '?')[0].toUpperCase()}</span>
+            <span className="post-author-name">@{author?.apelido}</span>
+          </Link>
           <div className="post-meta">
             <div className="comm">
-              <Link to={`/c/${post.communities?.slug}`} className="comm-name">{post.communities?.name}</Link>
-              <span className="time"> · u/{author?.apelido}</span>
+              <Link to={`/c/${post.communities?.slug}`} className="comm-badge">{post.communities?.name}</Link>
               <span className="time"> · {timeAgo(post.created_at)}</span>
             </div>
           </div>
@@ -160,7 +163,7 @@ export default function PostCard({ post, onDeleted, canModerate }) {
               {post.title}
             </h3>
             {post.body && <p className="post-body">{post.body}</p>}
-            {post.image_url && <img src={post.image_url} alt="" className="post-img" />}
+            {post.image_url && <img src={post.image_url} alt="" className="post-img" loading="lazy" />}
             {post.poll_options && <Poll post={post} />}
           </Link>
         )}

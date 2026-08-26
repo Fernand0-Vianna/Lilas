@@ -13,6 +13,7 @@ function hotScore(post) {
 function useFeed(q) {
   const [posts, setPosts] = useState([])
   const [communities, setCommunities] = useState([])
+  const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -23,23 +24,34 @@ function useFeed(q) {
       .order('created_at', { ascending: false })
       .limit(50)
     if (q) query = query.ilike('title', `%${q}%`)
+    const userSearch = q ? q.replace(/^[uU@\/]+/, '').trim() : ''
+    const usersQuery = userSearch
+      ? supabase.from('profiles').select('id, apelido, avatar_url, bio').ilike('apelido', `%${userSearch}%`).limit(10).then(r => r, () => ({ data: [] }))
+      : Promise.resolve({ data: [] })
     Promise.all([
       query,
-      supabase.from('communities').select('*').order('members', { ascending: false }).limit(10)
-    ]).then(([p, c]) => {
+      supabase.from('communities').select('*').order('members', { ascending: false }).limit(10),
+      usersQuery
+    ]).then(([p, c, u]) => {
       setPosts(p.data || [])
       setCommunities(c.data || [])
+      setUsers(u.data || [])
+      setLoading(false)
+    }).catch(() => {
+      setPosts([])
+      setCommunities([])
+      setUsers([])
       setLoading(false)
     })
   }, [q])
 
-  return { posts, communities, loading, removePost: id => setPosts(p => p.filter(x => x.id !== id)) }
+  return { posts, communities, users, loading, removePost: id => setPosts(p => p.filter(x => x.id !== id)) }
 }
 
 export default function Feed() {
   const [params] = useSearchParams()
   const q = params.get('q') || ''
-  const { posts, communities, loading, removePost } = useFeed(q)
+  const { posts, communities, users, loading, removePost } = useFeed(q)
   const { profile } = useAuth()
   const [tab, setTab] = useState('hot')
 
@@ -74,6 +86,17 @@ export default function Feed() {
           </aside>
 
           {q && <h2 style={{ fontSize: 18, margin: '16px 0' }}>Resultados para "{q}"</h2>}
+          {q && users.length > 0 && (
+            <div className="card" style={{ padding: 12, marginBottom: 4 }}>
+              <h3 style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 8, fontWeight: 700 }}>Pessoas</h3>
+              {users.map(u => (
+                <Link key={u.id} to={`/u/${u.apelido}`} className="rail-item">
+                  <span className="avatar-sm">{u.avatar_url ? <img src={u.avatar_url} alt="" /> : u.apelido[0].toUpperCase()}</span>
+                  <span>@{u.apelido}</span>
+                </Link>
+              ))}
+            </div>
+          )}
           <div className="feed-tabs">
             <button className={tab === 'hot' ? 'active' : ''} onClick={() => setTab('hot')}>Em alta</button>
             <button className={tab === 'new' ? 'active' : ''} onClick={() => setTab('new')}>Novo</button>
@@ -92,7 +115,7 @@ export default function Feed() {
 
         <aside className="side">
           <div className="card welcome">
-            <span className="avatar big-av">{(profile?.apelido || '?')[0].toUpperCase()}</span>
+            <span className="avatar big-av">{profile?.avatar_url ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : (profile?.apelido || '?')[0].toUpperCase()}</span>
             <h4>Bem-vinda, @{profile?.apelido}</h4>
             <p>Encontre apoio e compartilhe sua história.</p>
             <Link to="/criar" className="btn btn-primary welcome-btn">+ Criar post</Link>

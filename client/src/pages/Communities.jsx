@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
+import { compact } from '../lib/format.js'
 
 export default function Communities() {
   const { session } = useAuth()
@@ -31,12 +32,6 @@ export default function Communities() {
     }
   }
 
-  function fmt(n) {
-    if (n >= 1000000) return (n / 1000000).toFixed(1).replace('.0', '') + ' mi'
-    if (n >= 1000) return (n / 1000).toFixed(0) + ' mil'
-    return String(n)
-  }
-
   const q = query.trim().toLowerCase()
   const list = q
     ? communities.filter(c => c.name.toLowerCase().includes(q) || (c.description || '').toLowerCase().includes(q))
@@ -55,7 +50,7 @@ export default function Communities() {
               <span className={`banner${c.banner_url ? ' banner--img' : ''}`} style={c.banner_url ? { backgroundImage: `url(${c.banner_url})` } : undefined}>{c.name.replace('r/', '').slice(0, 1)}</span>
               <div style={{ flex: 1 }}>
                 <Link to={`/c/${c.slug}`}><h4>{c.name}</h4></Link>
-                <div className="comm-meta">{fmt(c.members)} membros · {c.category}</div>
+                <div className="comm-meta">{compact(c.members)} membros · {c.category}</div>
                 <p>{c.description}</p>
               </div>
               <button className={`btn ${joined[c.id] ? 'btn-outline' : 'btn-primary'}`} onClick={() => toggle(c)}>

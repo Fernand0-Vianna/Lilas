@@ -41,10 +41,12 @@ function FollowersModal({ userId, type, onClose }) {
 
   async function toggleFollow(targetId) {
     if (followingMap[targetId]) {
-      await supabase.from('follows').delete().eq('follower_id', session.user.id).eq('following_id', targetId)
+      const { error } = await supabase.from('follows').delete().eq('follower_id', session.user.id).eq('following_id', targetId)
+      if (error) return
       setFollowingMap(m => { const n = { ...m }; delete n[targetId]; return n })
     } else {
-      await supabase.from('follows').insert({ follower_id: session.user.id, following_id: targetId })
+      const { error } = await supabase.from('follows').insert({ follower_id: session.user.id, following_id: targetId })
+      if (error) return
       setFollowingMap(m => ({ ...m, [targetId]: true }))
     }
   }
@@ -129,7 +131,7 @@ function ActivityFeed({ userId }) {
               {item.isOwn ? (
                 <>Você comentou em <Link to={`/post/${item.postId}`}>um post</Link></>
               ) : (
-                <><b>{item.user?.apelido}</b> comentou em <Link to={`/post/${item.postId}`}>um post</Link></>
+                <><Link to={`/u/${item.user?.apelido}`}><b>{item.user?.apelido}</b></Link> comentou em <Link to={`/post/${item.postId}`}>um post</Link></>
               )}
             </p>
             <p className="activity-preview">{item.body?.slice(0, 120)}{item.body?.length > 120 ? '...' : ''}</p>
@@ -333,9 +335,9 @@ export default function Profile() {
       if (params.get('editar') === '1') setEditOpen(true)
       const [postsR, followR, followersR, followingR] = await Promise.all([
         supabase.from('posts').select('*, profiles!posts_author_id_fkey(apelido, avatar_url), communities(name, slug), likes(vote), comments(count), poll_votes(option_idx)').eq('author_id', data.id).order('created_at', { ascending: false }),
-        supabase.from('follows').select('id').eq('follower_id', session.user.id).eq('following_id', data.id).maybeSingle(),
-        supabase.from('follows').select('id', { count: 'exact', head: true }).eq('following_id', data.id),
-        supabase.from('follows').select('id', { count: 'exact', head: true }).eq('follower_id', data.id)
+        supabase.from('follows').select('follower_id').eq('follower_id', session.user.id).eq('following_id', data.id).maybeSingle(),
+        supabase.from('follows').select('follower_id', { count: 'exact', head: true }).eq('following_id', data.id),
+        supabase.from('follows').select('follower_id', { count: 'exact', head: true }).eq('follower_id', data.id)
       ])
       const list = postsR.data || []
       setPosts(list)
@@ -355,11 +357,13 @@ export default function Profile() {
 
   async function toggleFollow() {
     if (following) {
-      await supabase.from('follows').delete().eq('follower_id', session.user.id).eq('following_id', profile.id)
+      const { error } = await supabase.from('follows').delete().eq('follower_id', session.user.id).eq('following_id', profile.id)
+      if (error) return
       setStats(s => ({ ...s, followers: s.followers - 1 }))
       setFollowing(false)
     } else {
-      await supabase.from('follows').insert({ follower_id: session.user.id, following_id: profile.id })
+      const { error } = await supabase.from('follows').insert({ follower_id: session.user.id, following_id: profile.id })
+      if (error) return
       setStats(s => ({ ...s, followers: s.followers + 1 }))
       setFollowing(true)
     }

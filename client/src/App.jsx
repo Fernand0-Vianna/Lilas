@@ -46,10 +46,10 @@ function Topbar() {
               </button>
               <div className="avatar-menu">
                 <button className="avatar-link desktop-only" title={profile?.apelido} onClick={() => setMenu(m => !m)}>
-                  <span className="avatar">{(profile?.apelido || '?')[0].toUpperCase()}</span>
+                  <span className="avatar">{profile?.avatar_url ? <img src={profile.avatar_url} alt="" /> : (profile?.apelido || '?')[0].toUpperCase()}</span>
                 </button>
                 <Link to="/perfil" className="avatar-link mobile-only" title={profile?.apelido}>
-                  <span className="avatar">{(profile?.apelido || '?')[0].toUpperCase()}</span>
+                  <span className="avatar">{profile?.avatar_url ? <img src={profile.avatar_url} alt="" /> : (profile?.apelido || '?')[0].toUpperCase()}</span>
                 </Link>
                 <div className={`avatar-dropdown ${menu ? 'open' : ''}`}>
                   <Link to="/perfil" onClick={() => setMenu(false)}>

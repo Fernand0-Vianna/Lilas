@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
+import ConfirmModal from '../components/ConfirmModal.jsx'
 
 export default function AdminReports() {
   const { session, profile } = useAuth()
   const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(true)
+  const [confirmRemove, setConfirmRemove] = useState(null)
 
   useEffect(() => {
     if (!profile?.is_admin) return
@@ -31,11 +33,12 @@ export default function AdminReports() {
     setReports(rs => rs.filter(r => r.id !== id))
   }
 
-  async function remove(id, kind, targetId) {
-    if (!window.confirm('Excluir este conteúdo e resolver a denúncia?')) return
+  async function doRemove() {
+    const { id, kind, targetId } = confirmRemove
     await supabase.from(kind).delete().eq('id', targetId)
     await supabase.from('reports').update({ status: 'resolvido' }).eq('id', id)
     setReports(rs => rs.filter(r => r.id !== id))
+    setConfirmRemove(null)
   }
 
   if (!profile?.is_admin) return <div className="container" style={{ paddingTop: 24 }}>Acesso restrito a administradores.</div>
@@ -59,13 +62,23 @@ export default function AdminReports() {
               {r.reason && <span style={{ fontSize: 13, color: 'var(--muted)' }}>· "{r.reason}"</span>}
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-              {r.post && <button className="btn btn-outline" onClick={() => remove(r.id, 'posts', r.post.id)}>Excluir post</button>}
-              {r.comment && <button className="btn btn-outline" onClick={() => remove(r.id, 'comments', r.comment.id)}>Excluir comentário</button>}
+              {r.post && <button className="btn btn-outline" onClick={() => setConfirmRemove({ id: r.id, kind: 'posts', targetId: r.post.id })}>Excluir post</button>}
+              {r.comment && <button className="btn btn-outline" onClick={() => setConfirmRemove({ id: r.id, kind: 'comments', targetId: r.comment.id })}>Excluir comentário</button>}
               <button className="btn btn-primary" onClick={() => resolve(r.id)}>Marcar resolvida</button>
             </div>
           </div>
         ))}
       </div>
+      {confirmRemove && (
+        <ConfirmModal
+          title="Excluir conteúdo?"
+          message="Tem certeza que deseja excluir este conteúdo e resolver a denúncia?"
+          confirmLabel="Excluir"
+          danger
+          onConfirm={doRemove}
+          onClose={() => setConfirmRemove(null)}
+        />
+      )}
     </div>
   )
 }
