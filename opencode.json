@@ -1,0 +1,46 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "username": "Lilás Team",
+  "default_agent": "orchestrator",
+  "instructions": [
+    "AGENTS.md",
+    "docs/architecture.md",
+    "docs/database.md",
+    "docs/authentication.md",
+    "docs/design-system.md",
+    "docs/routes.md"
+  ],
+  "skills": {
+    "paths": [".opencode/skills"]
+  },
+  "references": {
+    "docs": {
+      "path": "docs",
+      "description": "Documentação do projeto: arquitetura, banco, auth, design system, rotas, componentes"
+    },
+    "supabase": {
+      "path": "supabase",
+      "description": "Migrations, seeds e configuração do Supabase (schema, RLS, triggers)"
+    },
+    "client": {
+      "path": "client/src",
+      "description": "Código fonte do frontend: páginas, componentes, hooks, lib"
+    }
+  },
+  "agent": {
+    "plan": { "mode": "primary" },
+    "build": { "mode": "primary" },
+    "orchestrator": { "mode": "primary" },
+    "code-reviewer": { "mode": "subagent" },
+    "debug-specialist": { "mode": "subagent" },
+    "frontend-architect": { "mode": "subagent" },
+    "frontend-implementer": { "mode": "subagent" },
+    "e2e-qa-engineer": { "mode": "subagent" },
+    "performance-optimizer": { "mode": "subagent" },
+    "test-engineer": { "mode": "subagent" }
+  },
+  "permission": {
+    "edit": "ask",
+    "bash": { "npm *": "allow", "supabase *": "allow", "*": "ask" }
+  }
+}
