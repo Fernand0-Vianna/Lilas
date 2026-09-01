@@ -37,10 +37,29 @@
     "frontend-implementer": { "mode": "subagent" },
     "e2e-qa-engineer": { "mode": "subagent" },
     "performance-optimizer": { "mode": "subagent" },
-    "test-engineer": { "mode": "subagent" }
+    "test-engineer": { "mode": "subagent" },
+    "verifier": { "mode": "subagent" }
   },
   "permission": {
-    "edit": "ask",
-    "bash": { "npm *": "allow", "supabase *": "allow", "*": "ask" }
+    "read": "deny",
+    "glob": "deny",
+    "grep": "deny",
+    "list": "deny",
+    "edit": "deny",
+    "bash": "deny",
+    "webfetch": "deny",
+    "websearch": "deny",
+    "lsp": "deny",
+    "task": {
+      "*": "deny",
+      "code-reviewer": "allow",
+      "debug-specialist": "allow",
+      "frontend-architect": "allow",
+      "frontend-implementer": "allow",
+      "e2e-qa-engineer": "allow",
+      "performance-optimizer": "allow",
+      "test-engineer": "allow",
+      "verifier": "allow"
+    }
   }
 }

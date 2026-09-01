@@ -1,11 +1,11 @@
----
+﻿---
 name: supabase-skill
-description: Convenções canônicas do backend Supabase do Lilás — schema PostgreSQL, RLS (Row Level Security), triggers, functions RPC, Supabase Auth (email OTP), Storage (futuro), migrações via Supabase CLI. Use ao ler, escrever ou revisar qualquer coisa em supabase/, incluindo migrations, policies, seeds, e ao definir contratos de dados consumidos pelo frontend. Não use para trabalho de UI (frontend-skill) nem para especificação de feature antes de código (sdd-orchestrator).
+description: Convenções canônicas do backend Supabase do Lilás — schema PostgreSQL, RLS (Row Level Security), triggers, functions RPC, Supabase Auth (email OTP), Storage (futuro), migrações via Supabase CLI. Use ao ler, escrever ou revisar qualquer coisa em supabase/, incluindo migrations, policies, seeds e ao definir contratos de dados consumidos pelo frontend. Não use para trabalho de UI (frontend-skill) nem para especificação de feature antes de código (sdd-orchestrator).
 ---
 
 # Backend (Supabase — Lilás)
 
-Base de **conhecimento** do backend Supabase: fatos do repositório, regras de segurança, migrações e anti‑padrões. Não é perfil de comportamento — o comportamento está nos agentes `frontend-architect` / `frontend-implementer` / `debug-specialist`, que carregam esta skill como contexto obrigatório.
+Base de conhecimento do backend Supabase: fatos do repositório, regras de segurança, migrações e anti-padrões. Não é perfil de comportamento — o comportamento está nos agentes `frontend-architect`, `frontend-implementer` e `debug-specialist`, que carregam esta skill como contexto obrigatório.
 
 ---
 
@@ -17,7 +17,7 @@ Base de **conhecimento** do backend Supabase: fatos do repositório, regras de s
 | Seeds de comunidades, avatars bucket | Sim |
 | Contratos de dados consumidos pelo frontend | Sim |
 | UI, hooks, estilos | Não — [`frontend-skill`](../frontend-skill/SKILL.md) |
-| Especificar feature antes de código | Não — [`sdd-orchestrator`](../sdd-orchestrator/SKILL.md) |
+| Especificar feature antes de código | Não — usar a skill [`sdd-orchestrator`](../sdd-orchestrator/SKILL.md) como método de trabalho |
 
 ---
 
@@ -34,14 +34,14 @@ Base de **conhecimento** do backend Supabase: fatos do repositório, regras de s
 ## 3. Princípios
 | Princípio | Como se traduz aqui |
 | --------- | ------------------- |
-| **Segurança no banco** | RLS habilitado em **todas** as tabelas; policies são a fronteira de autorização. |
-| **Menos poder útil** | KISS/YAGNI: uma função RPC por operação complexa; não adicionar triggers "para o futuro". |
-| **Fonte única de contratos** | Mudança de schema acompanha o consumidor (frontend) quando o incremento assim define. |
-| **Dados sensíveis no banco** | PII minimizada; emails/telefones não expostos em policies públicas. |
+| Segurança no banco | RLS habilitado em todas as tabelas; policies são a fronteira de autorização |
+| Menos poder útil | KISS/YAGNI: uma função RPC por operação complexa; não adicionar triggers "para o futuro" |
+| Fonte única de contratos | Mudança de schema acompanha o consumidor (frontend) quando o incremento assim define |
+| Dados sensíveis no banco | PII minimizada; emails/telefones não expostos em policies públicas |
 
 ---
 
-## 4. Tabelas e Relacionamentos (resumo)
+## 4. Tabelas e relacionamentos (resumo)
 Ver `docs/database.md` para detalhes completos.
 
 | Tabela | PK | Principais FKs | RLS |
@@ -82,9 +82,9 @@ Garante que todo usuário cadastrado já tenha perfil associado.
 ---
 
 ## 7. RLS (Row Level Security)
-Todas as 7 tabelas principais possuem RLS habilitado. Total de **21 policies**.
+Todas as 7 tabelas principais possuem RLS habilitado. Total de 21 policies.
 
-### Políticas por Tabela (resumo)
+### Políticas por tabela (resumo)
 | Tabela | Tipo | Exemplo |
 | ------ | ---- | ------- |
 | `profiles` | SELECT público | Qualquer autenticado lê perfis |
@@ -102,11 +102,11 @@ Todas as 7 tabelas principais possuem RLS habilitado. Total de **21 policies**.
 | `likes` | INSERT/DELETE próprio | Curtir/descurtir |
 | `follows` | INSERT/DELETE próprio | Seguir/deixar de seguir |
 
-> **Nota:** Detalhes exatos devem ser confirmados no Supabase Dashboard. A aplicação assume RLS correto para fluxos implementados.
+> Nota: detalhes exatos devem ser confirmados no Supabase Dashboard. A aplicação assume RLS correto para fluxos implementados.
 
 ---
 
-## 8. Dados Seed
+## 8. Dados seed
 5 comunidades criadas automaticamente na inicialização:
 - `r/AgostoLilas`
 - `r/Mulheres`
@@ -117,20 +117,20 @@ Todas as 7 tabelas principais possuem RLS habilitado. Total de **21 policies**.
 ---
 
 ## 9. Migrações
-- Gerenciadas via **Supabase CLI** (`supabase migration new`, `supabase db push`).
-- Arquivos em `supabase/migrations/` com timestamp prefixo.
-- **Release com `DROP COLUMN`/`RENAME` é forward‑only** — planejar em duas fases (adicionar → migrar dados → remover em release posterior).
-- Revisão humana obrigatória antes de produção.
+- Gerenciadas via Supabase CLI (`supabase migration new`, `supabase db push`)
+- Arquivos em `supabase/migrations/` com prefixo de timestamp
+- Release com `DROP COLUMN`/`RENAME` é forward-only — planejar em duas fases (adicionar → migrar dados → remover em release posterior)
+- Revisão humana obrigatória antes de produção
 
 ---
 
 ## 10. Autenticação (Supabase Auth)
-- **Email OTP** (One‑Time Password) — 8 dígitos, válido 1h.
-- **Signup**: `signUp` com `options.data.apelido` → trigger `handle_new_user` cria profile.
-- **Signin**: `signInWithPassword` → `refreshProfile()` carrega profile.
-- **Logout**: `signOut()` → `onAuthStateChange` limpa sessão e profile.
-- **Rate limit email**: Free tier 2 emails/hora/IP. Produção: SMTP custom (Resend, SendGrid).
-- **Domínios rejeitados**: `example.com`, `.test`, `.local` rejeitados pelo GoTrue.
+- Email OTP (One-Time Password) — 8 dígitos, válido por 1h
+- Signup: `signUp` com `options.data.apelido` → trigger `handle_new_user` cria profile
+- Signin: `signInWithPassword` → `refreshProfile()` carrega profile
+- Logout: `signOut()` → `onAuthStateChange` limpa sessão e profile
+- Rate limit email: free tier 2 emails/hora/IP; produção: SMTP custom (Resend, SendGrid)
+- Domínios rejeitados: `example.com`, `.test`, `.local` rejeitados pelo GoTrue
 
 ---
 
@@ -141,10 +141,10 @@ Bucket `avatars` criado via migration `20260825_create_avatars_bucket.sql`. Poli
 
 ## 12. Validação (comandos reais)
 ```bash
-supabase db push   # aplica migrações locais ao projeto vinculado
+supabase db push
 ```
 ```bash
-supabase db diff   # verifica diff de schema
+supabase db diff
 ```
 ```bash
 supabase migration list
@@ -163,24 +163,14 @@ supabase migration list
 
 ---
 
-## 14. Anti‑padrões
-| Evitar | Porquê |
-| ------ | ------ |
-| Policies genéricas "por hábito" sem ganho claro | Ruído e superfície de ataque |
-| Lógica de negócio pesada no frontend sem RLS correspondente | Viola segregação assumida |
-| `supabase.from().select('*')` em leituras | Vaza colunas sensíveis; usar colunas explícitas |
-| Triggers que modificam outras tabelas sem necessidade | Acoplamento oculto, difícil de depurar |
-| Secrets no repositório | Config sensível vai para variáveis de ambiente / Netlify env vars |
-| Migração `DROP`/`RENAME` sem plano em duas fases | Perda de dados irreversível |
+## 14. Anti-padrões
+- Acesso direto ao cliente do Supabase em componentes React
+- RLS desabilitado para ganhar velocidade de desenvolvimento
+- Mover regras de negócio para o frontend sem duplicar a regra de origem
+- Criar funções RPC sem contrato claro e documentação
+- Alterar schema sem atualizar frontend e migrations de rollback plan
 
 ---
 
 ## 15. Idioma
-Mensagens de usuário e logs de negócio: **português (Brasil)**. Identificadores de código: **inglês**.
-
----
-
-## Histórico
-| Versão | Mudança |
-| ------ | ------- |
-| 1.0.0  | Criação adaptada do EmpregaNet `backend-skill` para Supabase (PostgreSQL + RLS + Auth) |
+Comunicação e artefatos em português (Brasil); identificadores técnicos em inglês.

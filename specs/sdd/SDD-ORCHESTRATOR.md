@@ -1,6 +1,8 @@
 # SDD Orchestrator — Lilás
 
-Este documento governa o fluxo de Spec-Driven Development do projeto. Ele deve ser obedecido antes de qualquer feature nova ou refactor com impacto de contrato.
+Este documento define a metodologia de governança SDD do projeto. Ele não é um segundo agente executivo nem um orquestrador paralelo. O único ponto de entrada executável continua sendo o agente `orchestrator`.
+
+A função deste documento é orientar quando a demanda exige PRD/design/spec antes da implementação, sem duplicar a política de roteamento.
 
 ## 1. Quando aplicar
 - Capability nova com contrato de negócio a fixar

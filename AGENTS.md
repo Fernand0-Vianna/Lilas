@@ -1,6 +1,13 @@
 # Lilás - Contexto de desenvolvimento
 
-Regra de ouro da orquestração: toda interação começa pelo agente `orchestrator`. Nunca invocar diretamente `frontend-architect`, `frontend-implementer`, `debug-specialist`, `test-engineer`, `performance-optimizer`, `code-reviewer`, `e2e-qa-engineer` sem passar primeiro pelo roteamento. O agente só pode sair do `orchestrator` quando ele decidir a cadeia mínima e o contexto estiver pronto.
+Regra de ouro da orquestração: toda interação começa pelo agente `orchestrator`, independentemente do modo selecionado (`plan`, `build` ou `orchestrator`). Nunca invocar diretamente `frontend-architect`, `frontend-implementer`, `debug-specialist`, `test-engineer`, `performance-optimizer`, `code-reviewer`, `e2e-qa-engineer` sem passar primeiro pelo roteamento. O agente só pode sair do `orchestrator` quando ele decidir a cadeia mínima e o contexto estiver pronto.
+
+- **Plan / Build / Orchestrator**: os três modos compartilham a mesma regra de entrada. Nenhum deles pode agir como especialista direto sem delegação.
+- **Porta de entrada única**: em qualquer modo, o primeiro passo é classificar a tarefa e decidir o especialista correto; não existe atalho para implementação, validação ou revisão direta.
+- **Router puro**: o `orchestrator` não deve explorar arquivos, interpretar o projeto em modo direto ou fazer leitura/grep/glob/list sozinho. Sua função é classificar e delegar por `task`.
+- **SDD como método, não como segundo orquestrador**: a metodologia SDD fica em `specs/sdd/SDD-ORCHESTRATOR.md` e em `.opencode/skills/sdd-orchestrator/`, mas não cria um novo agente executivo. O único agente de entrada continua sendo `orchestrator`.
+- **Validação obrigatória antes da conclusão**: um agente não pode declarar uma tarefa concluída apenas pela própria autoavaliação. A conclusão depende dos gates de verificação definidos pelo `orchestrator` e, quando necessário, do agente `verifier`.
+- **Prompt vagos e “oi”**: tarefas ambíguas, curtas ou sem escopo não devem ser convertidas em execução direta. O agente deve responder com classificação e roteamento, nunca com ação imediata sem especialista.
 
 Antes de implementar ou desenhar mudanças significativas, alinha-te ao **Spec-Driven Development** e à arquitetura descrita no repositório.
 
@@ -62,15 +69,17 @@ Carregadas automaticamente quando a situação encaixa, ou invocadas por mençã
 | Convenções frontend React+Vite (conhecimento) | `frontend-skill` |
 | Convenções backend Supabase, RLS, Auth (conhecimento) | `supabase-skill` |
 | Pedido vago ou multi-domínio → rotear e encadear | `meta-agent` |
-| Especificar feature antes de código (PRD → design → spec) | `sdd-orchestrator` |
+| Especificar feature antes de código (PRD → design → spec) | skill `sdd-orchestrator` |
 | Regressão E2E pela UI real | `e2e-qa-skill` |
 
 Orquestração é skill, não agente: um subagente não tem a ferramenta Agent e por isso só conseguiria recomendar, não delegar.
 
 ## Regras de comportamento
 
+- **Loop de orquestração:** o fluxo obrigatório é `receber → classificar → planejar → delegar → acompanhar estado → verificar → reparar se falhar → verificar novamente → finalizar`.
 - **SDD first:** para features novas ou refactors com contrato negócio/técnico, seguir o fluxo SDD (PRD → design → spec/tasks) antes de gerar código.
 - **Human-in-the-loop:** merge e decisões de risco ficam com o humano. Sem secrets no repo.
+- **Verificação obrigatória:** um agente não pode declarar uma tarefa concluída apenas por sua própria avaliação. A conclusão depende dos gates de verificação definidos pelo `orchestrator`.
 - **Fonte de verdade no Supabase:** RLS (21 policies) garante segurança; não reimplementar regras de acesso no frontend.
 - **Inversão de dependência:** Páginas e hooks chamam `lib/` (services); **nunca** utilizar `supabase.from()` diretamente dentro do JSX.
 - **Estado global mínimo:** Utilizar `AuthContext` (`session`, `profile`, `loading`). Manter uma única política de rota (`RequireAuth`).
