@@ -1,9 +1,9 @@
 # Lilás - Contexto de desenvolvimento
 
-Regra de ouro da orquestração: toda interação começa pelo agente `orchestrator`, independentemente do modo selecionado (`plan`, `build` ou `orchestrator`). Nunca invocar diretamente `frontend-architect`, `frontend-implementer`, `debug-specialist`, `test-engineer`, `performance-optimizer`, `code-reviewer`, `e2e-qa-engineer` sem passar primeiro pelo roteamento. O agente só pode sair do `orchestrator` quando ele decidir a cadeia mínima e o contexto estiver pronto.
+Regra de ouro da orquestração: toda interação começa pelo agente `orchestrator` — o único agente primário habilitado. Os agentes `plan` e `build` estão desabilitados (`opencode.json`) justamente para impedir exploração ou edição direta fora do roteamento. Nunca invocar diretamente `frontend-architect`, `frontend-implementer`, `debug-specialist`, `test-engineer`, `performance-optimizer`, `code-reviewer`, `e2e-qa-engineer` sem passar primeiro pelo roteamento. O agente só pode sair do `orchestrator` quando ele decidir a cadeia mínima e o contexto estiver pronto.
 
-- **Plan / Build / Orchestrator**: os três modos compartilham a mesma regra de entrada. Nenhum deles pode agir como especialista direto sem delegação.
-- **Porta de entrada única**: em qualquer modo, o primeiro passo é classificar a tarefa e decidir o especialista correto; não existe atalho para implementação, validação ou revisão direta.
+- **Orchestrator como única porta de entrada**: `plan` e `build` estão desabilitados (`opencode.json`) — não existe modo que permita trabalho direto. Toda sessão inicia no `orchestrator`, que não pode agir como especialista direto sem delegação.
+- **Porta de entrada única**: o primeiro passo é sempre classificar a tarefa e decidir o especialista correto; não existe atalho para implementação, validação ou revisão direta.
 - **Router puro**: o `orchestrator` não deve explorar arquivos, interpretar o projeto em modo direto ou fazer leitura/grep/glob/list sozinho. Sua função é classificar e delegar por `task`.
 - **SDD como método, não como segundo orquestrador**: a metodologia SDD fica em `specs/sdd/SDD-ORCHESTRATOR.md` e em `.opencode/skills/sdd-orchestrator/`, mas não cria um novo agente executivo. O único agente de entrada continua sendo `orchestrator`.
 - **Validação obrigatória antes da conclusão**: um agente não pode declarar uma tarefa concluída apenas pela própria autoavaliação. A conclusão depende dos gates de verificação definidos pelo `orchestrator` e, quando necessário, do agente `verifier`.

@@ -28,38 +28,17 @@
     }
   },
   "agent": {
-    "plan": { "mode": "primary" },
-    "build": { "mode": "primary" },
+    "plan": { "disable": true },
+    "build": { "disable": true },
+    "general": { "disable": true },
     "orchestrator": { "mode": "primary" },
-    "code-reviewer": { "mode": "subagent" },
+    "code-reviewer": { "mode": "subagent", "permission": { "edit": "deny" } },
+    "frontend-architect": { "mode": "subagent", "permission": { "edit": "deny" } },
+    "e2e-qa-engineer": { "mode": "subagent", "permission": { "edit": "deny" } },
     "debug-specialist": { "mode": "subagent" },
-    "frontend-architect": { "mode": "subagent" },
     "frontend-implementer": { "mode": "subagent" },
-    "e2e-qa-engineer": { "mode": "subagent" },
     "performance-optimizer": { "mode": "subagent" },
     "test-engineer": { "mode": "subagent" },
     "verifier": { "mode": "subagent" }
-  },
-  "permission": {
-    "read": "deny",
-    "glob": "deny",
-    "grep": "deny",
-    "list": "deny",
-    "edit": "deny",
-    "bash": "deny",
-    "webfetch": "deny",
-    "websearch": "deny",
-    "lsp": "deny",
-    "task": {
-      "*": "deny",
-      "code-reviewer": "allow",
-      "debug-specialist": "allow",
-      "frontend-architect": "allow",
-      "frontend-implementer": "allow",
-      "e2e-qa-engineer": "allow",
-      "performance-optimizer": "allow",
-      "test-engineer": "allow",
-      "verifier": "allow"
-    }
   }
 }
