@@ -10,17 +10,26 @@ import Icon from '../components/Icons.jsx'
 function ReportComment({ commentId }) {
   const { session } = useAuth()
   const [open, setOpen] = useState(false)
+  const [reason, setReason] = useState('')
   const [sent, setSent] = useState(false)
   async function send() {
-    await supabase.from('reports').insert({ comment_id: commentId, reporter_id: session.user.id })
-    setSent(true)
+    const { error } = await supabase.from('reports').insert({ comment_id: commentId, reporter_id: session.user.id, reason: reason.trim() })
+    if (!error) setSent(true)
   }
   return (
     <span className="report">
       <button className="action" title="Denunciar comentário" onClick={() => setOpen(o => !o)}>
         <Icon name="flag" size={14} />
       </button>
-      {open && !sent && <button className="btn report-btn" onClick={send}>Denunciar</button>}
+      {open && !sent && (
+        <div className="report-pop">
+          <input placeholder="Motivo da denúncia..." value={reason} onChange={e => setReason(e.target.value)} autoFocus />
+          <div style={{ display: 'flex', gap: 4 }}>
+            <button className="btn btn-primary report-btn" onClick={send}>Enviar</button>
+            <button className="btn btn-outline report-btn" onClick={() => setOpen(false)}>✕</button>
+          </div>
+        </div>
+      )}
       {open && sent && <span className="report-ok">Denúncia enviada.</span>}
     </span>
   )

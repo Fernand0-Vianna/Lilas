@@ -25,13 +25,14 @@ function Poll({ post }) {
 
   async function vote(i) {
     if (mine === i) return
+    const prev = mine
     setMine(i)
-    setCounts(c => c.map((x, j) => (j === i ? x + 1 : x)))
+    setCounts(c => c.map((x, j) => j === i ? x + 1 : j === prev ? x - 1 : x))
     const { error } = await supabase.from('poll_votes')
       .upsert({ post_id: post.id, user_id: session.user.id, option_idx: i })
     if (error) {
-      setMine(-1)
-      setCounts(c => c.map((x, j) => (j === i ? x - 1 : x)))
+      setMine(prev)
+      setCounts(c => c.map((x, j) => j === i ? x - 1 : j === prev ? x + 1 : x))
     }
   }
 
@@ -89,19 +90,20 @@ export default function PostCard({ post, onDeleted, canModerate }) {
   }
 
   async function toggleSave() {
-    if (saved) {
-      await supabase.from('saves').delete().eq('post_id', post.id).eq('user_id', session.user.id)
-      setSaved(false)
-    } else {
-      await supabase.from('saves').insert({ post_id: post.id, user_id: session.user.id })
-      setSaved(true)
-    }
+    const prev = saved
+    setSaved(!saved)
+    const { error } = saved
+      ? await supabase.from('saves').delete().eq('post_id', post.id).eq('user_id', session.user.id)
+      : await supabase.from('saves').insert({ post_id: post.id, user_id: session.user.id })
+    if (error) setSaved(prev)
   }
 
   async function sendReport() {
-    await supabase.from('reports').insert({ post_id: post.id, reporter_id: session.user.id, reason: reason.trim() })
-    setReported(true)
-    setReporting(false)
+    const { error } = await supabase.from('reports').insert({ post_id: post.id, reporter_id: session.user.id, reason: reason.trim() })
+    if (!error) {
+      setReported(true)
+      setReporting(false)
+    }
   }
 
   async function doDeletePost() {

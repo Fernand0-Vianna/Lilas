@@ -24,11 +24,11 @@ export default function Communities() {
 
   async function toggle(c) {
     if (joined[c.id]) {
-      await supabase.from('community_members').delete().eq('community_id', c.id).eq('user_id', session.user.id)
-      setJoined({ ...joined, [c.id]: false })
+      const { error } = await supabase.from('community_members').delete().eq('community_id', c.id).eq('user_id', session.user.id)
+      if (!error) setJoined({ ...joined, [c.id]: false })
     } else {
-      await supabase.from('community_members').insert({ community_id: c.id, user_id: session.user.id })
-      setJoined({ ...joined, [c.id]: true })
+      const { error } = await supabase.from('community_members').insert({ community_id: c.id, user_id: session.user.id })
+      if (!error) setJoined({ ...joined, [c.id]: true })
     }
   }
 

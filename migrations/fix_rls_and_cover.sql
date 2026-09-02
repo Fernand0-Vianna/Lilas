@@ -23,7 +23,7 @@ CREATE POLICY "Cover upload for authenticated users"
 ON storage.objects
 FOR INSERT
 TO authenticated
-WITH CHECK (bucket_id = 'covers');
+WITH CHECK (bucket_id = 'covers' AND auth.uid()::text = (storage.foldername(name))[1]);
 
 CREATE POLICY "Public read for covers"
 ON storage.objects

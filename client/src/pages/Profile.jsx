@@ -305,6 +305,7 @@ export default function Profile() {
   const [posts, setPosts] = useState([])
   const [savedPosts, setSavedPosts] = useState([])
   const [following, setFollowing] = useState(false)
+  const [followLoading, setFollowLoading] = useState(false)
   const [stats, setStats] = useState({ posts: 0, likes: 0, comments: 0, followers: 0, following: 0 })
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
@@ -391,9 +392,11 @@ export default function Profile() {
       })
       setLoading(false)
     })
-  }, [apelido, session.user.id, authProfile])
+  }, [apelido, session.user.id, authProfile?.id])
 
   async function handleToggleFollow() {
+    if (followLoading) return
+    setFollowLoading(true)
     try {
       const { error } = await toggleFollow(session.user.id, profile.id, following)
       if (error) throw error
@@ -408,6 +411,8 @@ export default function Profile() {
     } catch (err) {
       console.error(err)
       showToast('Erro ao seguir usuário. Tente novamente.')
+    } finally {
+      setFollowLoading(false)
     }
   }
 
@@ -558,8 +563,8 @@ export default function Profile() {
                   <Icon name="pen" size={14} /> Editar perfil
                 </button>
               ) : (
-                <button className={`btn profile-action-btn ${following ? 'btn-outline' : 'btn-primary'}`} onClick={handleToggleFollow}>
-                  {following ? 'Seguindo' : 'Seguir'}
+                <button className={`btn profile-action-btn ${following ? 'btn-outline' : 'btn-primary'}`} onClick={handleToggleFollow} disabled={followLoading}>
+                  {followLoading ? '...' : following ? 'Seguindo' : 'Seguir'}
                 </button>
               )}
               <button className="btn btn-ghost profile-action-btn" onClick={handleShare} title="Compartilhar perfil">
