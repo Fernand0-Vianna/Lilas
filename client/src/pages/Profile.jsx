@@ -1,12 +1,32 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
 import { compact, timeAgo } from '../lib/format.js'
+import {
+  fetchProfileByApelido,
+  fetchUserPosts,
+  fetchFollowers,
+  fetchFollowing,
+  fetchFollowingMap,
+  toggleFollow,
+  updateProfile,
+  uploadAvatar,
+  uploadCover,
+  deleteAccount,
+  fetchUserActivity,
+  fetchSavedPosts,
+  checkIsFollowing,
+  updateUserPassword,
+  countFollowers,
+  countFollowing,
+  fetchUserKarma,
+  countCommentsOnPosts
+} from '../lib/profile-service.js'
 import PostCard from '../components/PostCard.jsx'
 import ConfirmModal from '../components/ConfirmModal.jsx'
 import BottomNav from '../components/BottomNav.jsx'
 import Icon from '../components/Icons.jsx'
+import ProfileSkeleton from '../components/ProfileSkeleton.jsx'
 import logo from '../assets/lilas-logo.svg'
 
 function FollowersModal({ userId, type, onClose }) {
@@ -14,24 +34,24 @@ function FollowersModal({ userId, type, onClose }) {
   const [loading, setLoading] = useState(true)
   const { session, profile } = useAuth()
   const [followingMap, setFollowingMap] = useState({})
+  const [error, setError] = useState('')
 
   useEffect(() => {
     setLoading(true)
     const fetchList = async () => {
       const isFollowers = type === 'followers'
-      const q = isFollowers
-        ? supabase.from('follows').select('follower_id, profiles:follower_id(id, apelido, avatar_url)').eq('following_id', userId)
-        : supabase.from('follows').select('following_id, profiles:following_id(id, apelido, avatar_url)').eq('follower_id', userId)
-      const { data } = await q
-      const items = (data || []).map(r => isFollowers ? r.profiles : r.profiles).filter(Boolean)
-      setList(items)
-      if (session?.user) {
+      const { data: items } = isFollowers
+        ? await fetchFollowers(userId)
+        : await fetchFollowing(userId)
+
+      setList(items || [])
+
+      // Buscar status de follow em paralelo se houver itens
+      if (session?.user && items?.length > 0) {
         const ids = items.map(i => i.id).filter(id => id !== session.user.id)
         if (ids.length) {
-          const { data: f } = await supabase.from('follows').select('following_id').eq('follower_id', session.user.id).in('following_id', ids)
-          const map = {}
-          ;(f || []).forEach(r => { map[r.following_id] = true })
-          setFollowingMap(map)
+          const { data: map } = await fetchFollowingMap(session.user.id, ids)
+          setFollowingMap(map || {})
         }
       }
       setLoading(false)
@@ -39,15 +59,21 @@ function FollowersModal({ userId, type, onClose }) {
     fetchList()
   }, [userId, type, session?.user?.id])
 
-  async function toggleFollow(targetId) {
-    if (followingMap[targetId]) {
-      const { error } = await supabase.from('follows').delete().eq('follower_id', session.user.id).eq('following_id', targetId)
-      if (error) return
-      setFollowingMap(m => { const n = { ...m }; delete n[targetId]; return n })
-    } else {
-      const { error } = await supabase.from('follows').insert({ follower_id: session.user.id, following_id: targetId })
-      if (error) return
-      setFollowingMap(m => ({ ...m, [targetId]: true }))
+  async function handleToggleFollow(targetId) {
+    try {
+      setError('')
+      const isCurrentlyFollowing = !!followingMap[targetId]
+      const { error } = await toggleFollow(session.user.id, targetId, isCurrentlyFollowing)
+      if (error) throw error
+
+      if (isCurrentlyFollowing) {
+        setFollowingMap(m => { const n = { ...m }; delete n[targetId]; return n })
+      } else {
+        setFollowingMap(m => ({ ...m, [targetId]: true }))
+      }
+    } catch (err) {
+      console.error(err)
+      setError('Erro ao seguir usuário. Tente novamente.')
     }
   }
 
@@ -59,6 +85,7 @@ function FollowersModal({ userId, type, onClose }) {
           <button className="modal-close" onClick={onClose}><Icon name="x-close" size={20} /></button>
         </div>
         <div className="modal-body">
+          {error && <p className="error" style={{ marginBottom: 12 }}>{error}</p>}
           {loading ? <p className="modal-empty">Carregando...</p> : list.length === 0 ? (
             <p className="modal-empty">{type === 'followers' ? 'Nenhum seguidor ainda.' : 'Não segue ninguém ainda.'}</p>
           ) : list.map(u => (
@@ -68,7 +95,7 @@ function FollowersModal({ userId, type, onClose }) {
                 <span className="modal-user-name">{u.apelido}</span>
               </Link>
               {u.id !== session?.user?.id && (
-                <button className={`btn btn-sm ${followingMap[u.id] ? 'btn-outline' : 'btn-primary'}`} onClick={() => toggleFollow(u.id)}>
+                <button className={`btn btn-sm ${followingMap[u.id] ? 'btn-outline' : 'btn-primary'}`} onClick={() => handleToggleFollow(u.id)}>
                   {followingMap[u.id] ? 'Seguindo' : 'Seguir'}
                 </button>
               )}
@@ -86,36 +113,12 @@ function ActivityFeed({ userId }) {
 
   useEffect(() => {
     setLoading(true)
-    const fetchActivity = async () => {
-      const { data: posts } = await supabase.from('posts').select('id').eq('author_id', userId)
-      const postIds = (posts || []).map(p => p.id)
-
-      const [commentsOnMyPosts, myComments] = await Promise.all([
-        postIds.length
-          ? supabase.from('comments').select('body, post_id, user_id, created_at, profiles:user_id(apelido, avatar_url)').in('post_id', postIds).order('created_at', { ascending: false }).limit(20)
-          : { data: [] },
-        supabase.from('comments').select('body, post_id, user_id, created_at, profiles:user_id(apelido, avatar_url)').eq('author_id', userId).order('created_at', { ascending: false }).limit(20)
-      ])
-
-      const items = []
-      const seen = new Set()
-      ;(commentsOnMyPosts.data || []).forEach(c => {
-        const key = `${c.user_id}-${c.post_id}-${c.created_at}`
-        if (seen.has(key)) return
-        seen.add(key)
-        items.push({ type: 'comment', postId: c.post_id, user: c.profiles, body: c.body, created_at: c.created_at, isOwn: c.user_id === userId })
-      })
-      ;(myComments.data || []).forEach(c => {
-        const key = `${c.user_id}-${c.post_id}-${c.created_at}`
-        if (seen.has(key)) return
-        seen.add(key)
-        items.push({ type: 'comment', postId: c.post_id, user: c.profiles, body: c.body, created_at: c.created_at, isOwn: true })
-      })
-      items.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-      setActivity(items.slice(0, 15))
+    const loadActivity = async () => {
+      const { data } = await fetchUserActivity(userId)
+      setActivity(data || [])
       setLoading(false)
     }
-    fetchActivity()
+    loadActivity()
   }, [userId])
 
   if (loading) return <p className="profile-empty">Carregando atividade...</p>
@@ -178,10 +181,7 @@ function EditModal({ profile, onClose, onSave, onAvatarUpload, onCoverUpload, on
   async function handleSave() {
     setMsg('')
     if (!apelido.trim()) { setMsg('Escolha um apelido.'); return }
-    const { error } = await supabase.from('profiles').update({
-      apelido: apelido.trim().replace(/^@/, ''),
-      bio: bio.trim()
-    }).eq('id', profile.id)
+    const { error } = await updateProfile(profile.id, { apelido, bio })
     if (error) { setMsg(error.message); return }
     onSave(apelido.trim().replace(/^@/, ''), bio.trim())
     setMsg('Perfil atualizado.')
@@ -191,7 +191,7 @@ function EditModal({ profile, onClose, onSave, onAvatarUpload, onCoverUpload, on
     setPwMsg('')
     if (!pw1 || pw1.length < 6) { setPwMsg('A senha deve ter ao menos 6 caracteres.'); return }
     if (pw1 !== pw2) { setPwMsg('As senhas não conferem.'); return }
-    const { error } = await supabase.auth.updateUser({ password: pw1 })
+    const { error } = await updateUserPassword(pw1)
     if (error) { setPwMsg(error.message); return }
     setPwMsg('Senha atualizada.')
     setPw1(''); setPw2('')
@@ -298,7 +298,7 @@ function EditModal({ profile, onClose, onSave, onAvatarUpload, onCoverUpload, on
 
 export default function Profile() {
   const { apelido } = useParams()
-  const { session, signOut, refreshProfile } = useAuth()
+  const { session, profile: authProfile, signOut, refreshProfile } = useAuth()
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const [profile, setProfile] = useState(null)
@@ -325,47 +325,89 @@ export default function Profile() {
     setLoading(true)
     setNotFound(false)
     setTab('posts')
-    const q = apelido
-      ? supabase.from('profiles').select('*').eq('apelido', apelido).maybeSingle()
-      : supabase.from('profiles').select('*').eq('id', session.user.id).maybeSingle()
 
-    q.then(async ({ data }) => {
+    // Se não tem apelido na URL, é o próprio perfil - usar profile do AuthContext
+    if (!apelido && authProfile) {
+      // Usar profile já carregado do AuthContext
+      setProfile(authProfile)
+      if (params.get('editar') === '1') setEditOpen(true)
+
+      // Buscar posts primeiro, depois stats em paralelo reutilizando os IDs
+      ;(async () => {
+        const postsR = await fetchUserPosts(authProfile.id)
+        const postIds = postsR.data?.map(p => p.id) || []
+
+        const [followR, followersR, followingR, karmaR, commentsCount] = await Promise.all([
+          Promise.resolve({ isFollowing: false }),
+          countFollowers(authProfile.id),
+          countFollowing(authProfile.id),
+          fetchUserKarma(authProfile.id),
+          postIds.length ? countCommentsOnPosts(postIds) : Promise.resolve({ count: 0 })
+        ])
+
+        setPosts(postsR.data || [])
+        setFollowing(false)
+        setStats({
+          posts: postsR.data?.length || 0,
+          likes: karmaR.data ?? 0,
+          comments: commentsCount.count || 0,
+          followers: followersR.count || 0,
+          following: followingR.count || 0
+        })
+        setLoading(false)
+      })()
+      return
+    }
+
+    // Se tem apelido na URL e já temos o profile com esse apelido, não re-buscar
+    if (apelido && profile?.apelido === apelido && !loading) return
+
+    // Caso contrário, buscar perfil pelo apelido
+    fetchProfileByApelido(apelido).then(async ({ data }) => {
       if (!data) { setNotFound(true); setLoading(false); return }
       setProfile(data)
       if (params.get('editar') === '1') setEditOpen(true)
-      const [postsR, followR, followersR, followingR] = await Promise.all([
-        supabase.from('posts').select('*, profiles!posts_author_id_fkey(apelido, avatar_url), communities(name, slug), likes(vote), comments(count), poll_votes(option_idx)').eq('author_id', data.id).order('created_at', { ascending: false }),
-        supabase.from('follows').select('follower_id').eq('follower_id', session.user.id).eq('following_id', data.id).maybeSingle(),
-        supabase.from('follows').select('follower_id', { count: 'exact', head: true }).eq('following_id', data.id),
-        supabase.from('follows').select('follower_id', { count: 'exact', head: true }).eq('follower_id', data.id)
+
+      // Buscar posts primeiro, depois stats em paralelo reutilizando os IDs
+      const postsR = await fetchUserPosts(data.id)
+      const postIds = postsR.data?.map(p => p.id) || []
+
+      const [followR, followersR, followingR, karmaR, commentsCount] = await Promise.all([
+        checkIsFollowing(session.user.id, data.id),
+        countFollowers(data.id),
+        countFollowing(data.id),
+        fetchUserKarma(data.id),
+        postIds.length ? countCommentsOnPosts(postIds) : Promise.resolve({ count: 0 })
       ])
-      const list = postsR.data || []
-      setPosts(list)
-      setFollowing(!!followR.data)
-      const ids = list.map(p => p.id)
-      const tally = async (table) => ids.length
-        ? supabase.from(table).select('id', { count: 'exact', head: true }).in('post_id', ids).then(r => r.count || 0)
-        : 0
-      const [karmaR, comments] = await Promise.all([
-        supabase.rpc('karma_of', { p_user: data.id }),
-        tally('comments')
-      ])
-      setStats({ posts: list.length, likes: karmaR.data ?? 0, comments, followers: followersR.count || 0, following: followingR.count || 0 })
+
+      setPosts(postsR.data || [])
+      setFollowing(!!followR.isFollowing)
+      setStats({
+        posts: postsR.data?.length || 0,
+        likes: karmaR.data ?? 0,
+        comments: commentsCount.count || 0,
+        followers: followersR.count || 0,
+        following: followingR.count || 0
+      })
       setLoading(false)
     })
-  }, [apelido, session.user.id])
+  }, [apelido, session.user.id, authProfile])
 
-  async function toggleFollow() {
-    if (following) {
-      const { error } = await supabase.from('follows').delete().eq('follower_id', session.user.id).eq('following_id', profile.id)
-      if (error) return
-      setStats(s => ({ ...s, followers: s.followers - 1 }))
-      setFollowing(false)
-    } else {
-      const { error } = await supabase.from('follows').insert({ follower_id: session.user.id, following_id: profile.id })
-      if (error) return
-      setStats(s => ({ ...s, followers: s.followers + 1 }))
-      setFollowing(true)
+  async function handleToggleFollow() {
+    try {
+      const { error } = await toggleFollow(session.user.id, profile.id, following)
+      if (error) throw error
+
+      if (following) {
+        setStats(s => ({ ...s, followers: s.followers - 1 }))
+        setFollowing(false)
+      } else {
+        setStats(s => ({ ...s, followers: s.followers + 1 }))
+        setFollowing(true)
+      }
+    } catch (err) {
+      console.error(err)
+      showToast('Erro ao seguir usuário. Tente novamente.')
     }
   }
 
@@ -378,23 +420,10 @@ export default function Profile() {
     try {
       showToast('Enviando foto de perfil...')
       const webp = await fileToWebP(file, 0.85, 600)
-      const fileName = `${profile.id}/avatar_${Date.now()}.webp`
-      
-      let uploadRes = await supabase.storage.from('posts').upload(`avatars/${fileName}`, webp, { contentType: 'image/webp', upsert: true })
-      let publicUrl = ''
-      if (!uploadRes.error) {
-        publicUrl = supabase.storage.from('posts').getPublicUrl(`avatars/${fileName}`).data.publicUrl
-      } else {
-        const altRes = await supabase.storage.from('avatars').upload(fileName, webp, { contentType: 'image/webp', upsert: true })
-        if (altRes.error) throw new Error(altRes.error.message || uploadRes.error.message)
-        publicUrl = supabase.storage.from('avatars').getPublicUrl(fileName).data.publicUrl
-      }
-      
-      const bustUrl = `${publicUrl}?t=${Date.now()}`
-      const { error: dbErr } = await supabase.from('profiles').update({ avatar_url: bustUrl }).eq('id', profile.id)
-      if (dbErr) throw dbErr
-      
-      setProfile(p => ({ ...p, avatar_url: bustUrl }))
+      const { url, error } = await uploadAvatar(profile.id, webp)
+      if (error) throw error
+
+      setProfile(p => ({ ...p, avatar_url: url }))
       await refreshProfile()
       showToast('Foto de perfil atualizada!')
     } catch (err) {
@@ -407,19 +436,10 @@ export default function Profile() {
     try {
       showToast('Enviando imagem de capa...')
       const webp = await fileToWebP(file, 0.85, 1400)
-      const fileName = `${profile.id}/cover_${Date.now()}.webp`
-      
-      let uploadRes = await supabase.storage.from('covers').upload(fileName, webp, { contentType: 'image/webp', upsert: true })
-      if (uploadRes.error) throw new Error(uploadRes.error.message)
-      const publicUrl = supabase.storage.from('covers').getPublicUrl(fileName).data.publicUrl
-      
-      const bustUrl = `${publicUrl}?t=${Date.now()}`
-      let updateRes = await supabase.from('profiles').update({ cover_url: bustUrl }).eq('id', profile.id)
-      if (updateRes.error) {
-        updateRes = await supabase.from('profiles').update({ banner_url: bustUrl }).eq('id', profile.id)
-      }
-      
-      setProfile(p => ({ ...p, cover_url: bustUrl, banner_url: bustUrl }))
+      const { url, error } = await uploadCover(profile.id, webp)
+      if (error) throw error
+
+      setProfile(p => ({ ...p, cover_url: url, banner_url: url }))
       await refreshProfile()
       showToast('Foto de fundo atualizada!')
     } catch (err) {
@@ -429,23 +449,24 @@ export default function Profile() {
   }
 
   async function doDeleteAccount() {
-    await supabase.rpc('delete_account')
-    setConfirmDeleteAccount(false)
-    await signOut()
-    navigate('/login')
+    try {
+      const { error } = await deleteAccount()
+      if (error) throw error
+      setConfirmDeleteAccount(false)
+      await signOut()
+      navigate('/login')
+    } catch (err) {
+      console.error(err)
+      showToast('Erro ao excluir conta. Tente novamente.')
+    }
   }
 
   useEffect(() => {
     if (tab !== 'saves') return
-    supabase.from('saves')
-      .select('post_id, posts(*, profiles!posts_author_id_fkey(apelido, avatar_url), communities(slug, name), likes(vote), comments(count), poll_votes(option_idx))')
-      .eq('user_id', session.user.id)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => setSavedPosts((data || []).map(s => s.posts).filter(Boolean)))
+    fetchSavedPosts(session.user.id).then(({ data }) => setSavedPosts(data || []))
   }, [tab, session.user.id])
 
-  if (loading) return <div className="container" style={{ paddingTop: 24 }}>Carregando...</div>
-  if (!notFound && !profile) return <div className="container" style={{ paddingTop: 24 }}>Carregando...</div>
+  if (loading || (!notFound && !profile)) return <ProfileSkeleton />
   if (notFound) return <div className="container" style={{ paddingTop: 24 }}>Usuário não encontrado.</div>
 
   const isMe = profile.id === session.user.id
@@ -537,7 +558,7 @@ export default function Profile() {
                   <Icon name="pen" size={14} /> Editar perfil
                 </button>
               ) : (
-                <button className={`btn profile-action-btn ${following ? 'btn-outline' : 'btn-primary'}`} onClick={toggleFollow}>
+                <button className={`btn profile-action-btn ${following ? 'btn-outline' : 'btn-primary'}`} onClick={handleToggleFollow}>
                   {following ? 'Seguindo' : 'Seguir'}
                 </button>
               )}

@@ -9,10 +9,25 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session)
+
+    const initAuth = async () => {
+      const { data: { session: currentSession } } = await supabase.auth.getSession()
+      setSession(currentSession)
+      
+      if (currentSession?.user) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('id, apelido, avatar_url, bio, is_admin, created_at')
+          .eq('id', currentSession.user.id)
+          .maybeSingle()
+        setProfile(data)
+      }
+
       setLoading(false)
-    })
+    }
+
+    initAuth()
+
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
       setSession(s)
       if (!s) setProfile(null)
@@ -22,9 +37,10 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (!session?.user) return
+    if (profile?.id === session.user.id) return
     supabase
       .from('profiles')
-      .select('*')
+      .select('id, apelido, avatar_url, bio, is_admin, created_at')
       .eq('id', session.user.id)
       .maybeSingle()
       .then(({ data }) => setProfile(data))
@@ -32,7 +48,11 @@ export function AuthProvider({ children }) {
 
   const refreshProfile = async () => {
     if (!session?.user) return
-    const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).maybeSingle()
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, apelido, avatar_url, bio, is_admin, created_at')
+      .eq('id', session.user.id)
+      .maybeSingle()
     setProfile(data)
   }
 
