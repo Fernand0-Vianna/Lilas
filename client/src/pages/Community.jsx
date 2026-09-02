@@ -116,6 +116,8 @@ export default function Community() {
   const [joined, setJoined] = useState(false)
   const [isMod, setIsMod] = useState(false)
   const [showModPanel, setShowModPanel] = useState(false)
+  const [userVotes, setUserVotes] = useState({})
+  const [userSaves, setUserSaves] = useState({})
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [toast, setToast] = useState('')
@@ -132,9 +134,25 @@ export default function Community() {
         supabase.from('community_members').select('community_id').eq('community_id', data.id).eq('user_id', session.user.id).maybeSingle(),
         supabase.rpc('is_mod_of', { p_community: data.id })
       ])
-      setPosts(postsR.data || [])
+      const allPosts = postsR.data || []
+      setPosts(allPosts)
       setJoined(!!member.data)
       setIsMod(!!mod.data)
+
+      const postIds = allPosts.map(x => x.id)
+      if (postIds.length && session?.user?.id) {
+        const [likesRes, savesRes] = await Promise.all([
+          supabase.from('likes').select('post_id, vote').in('post_id', postIds).eq('user_id', session.user.id),
+          supabase.from('saves').select('post_id').in('post_id', postIds).eq('user_id', session.user.id)
+        ])
+        const votesMap = {}
+        ;(likesRes.data || []).forEach(r => { votesMap[r.post_id] = r.vote })
+        const savesMap = {}
+        ;(savesRes.data || []).forEach(r => { savesMap[r.post_id] = true })
+        setUserVotes(votesMap)
+        setUserSaves(savesMap)
+      }
+
       setLoading(false)
     })
   }, [slug, session.user.id])
@@ -197,7 +215,7 @@ export default function Community() {
           </div>
         )}
         {posts.map(p => (
-          <PostCard key={p.id} post={p} canModerate={isMod} onDeleted={() => setPosts(ps => ps.filter(x => x.id !== p.id))} />
+          <PostCard key={p.id} post={p} canModerate={isMod} onDeleted={() => setPosts(ps => ps.filter(x => x.id !== p.id))} userVote={userVotes[p.id]} userSaved={userSaves[p.id]} />
         ))}
           </div>
           <aside className="comm-sidebar">

@@ -62,6 +62,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   max-width: 1120px; margin: 0 auto; padding: 0 16px; height: 48px;
   display: flex; align-items: center; gap: 16px;
 }
+.topbar-inner.search-expanded { height: auto; }
 .logo { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 17px; color: var(--primary-dark); }
 .logo-img { height: 24px; width: auto; display: block; }
 .search {

@@ -63,6 +63,8 @@ export default function Post() {
   const [replyTo, setReplyTo] = useState(null)
   const [replyBody, setReplyBody] = useState('')
   const [isMod, setIsMod] = useState(false)
+  const [userVote, setUserVote] = useState(undefined)
+  const [userSaved, setUserSaved] = useState(undefined)
   const [loading, setLoading] = useState(true)
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
   const [editingId, setEditingId] = useState(null)
@@ -84,6 +86,15 @@ export default function Post() {
       if (data) {
         setPost(data)
         supabase.rpc('is_mod_of', { p_community: data.community_id }).then(({ data: mod }) => setIsMod(!!mod))
+
+        if (session?.user?.id) {
+          const [likesRes, savesRes] = await Promise.all([
+            supabase.from('likes').select('vote').eq('post_id', data.id).eq('user_id', session.user.id).maybeSingle(),
+            supabase.from('saves').select('post_id').eq('post_id', data.id).eq('user_id', session.user.id).maybeSingle()
+          ])
+          setUserVote(likesRes.data?.vote ?? 0)
+          setUserSaved(!!savesRes.data)
+        }
       }
       const list = c.data || []
       if (session && list.length) {
@@ -174,7 +185,7 @@ export default function Post() {
   return (
     <div className="container" style={{ maxWidth: 760 }}>
       <div style={{ paddingTop: 24 }}>
-        <PostCard post={post} canModerate={isMod} onDeleted={() => navigate('/')} />
+        <PostCard post={post} canModerate={isMod} onDeleted={() => navigate('/')} userVote={userVote} userSaved={userSaved} />
         <div className="card" style={{ marginTop: 16 }}>
           <h3 style={{ fontSize: 16, marginBottom: 12 }}>Comentários</h3>
           {replyForm(addComment, body, setBody)}

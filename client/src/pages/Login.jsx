@@ -85,14 +85,14 @@ export default function Login() {
 
         <div className="field">
           <label>Email</label>
-          <input type="email" placeholder="seuemail@exemplo.com" value={email} onChange={e => setEmail(e.target.value)} />
+          <input type="email" name="email" autoComplete="email" placeholder="seuemail@exemplo.com" value={email} onChange={e => setEmail(e.target.value)} />
         </div>
         {mode === 'criar' && (
           <div className="field">
             <label>Apelido (fantasy name)</label>
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <span style={{ padding: '11px 0 11px 14px', color: 'var(--muted)' }}>@</span>
-              <input style={{ borderLeft: 'none', paddingLeft: '4px' }} placeholder="nome_fantasia"
+              <input style={{ borderLeft: 'none', paddingLeft: '4px' }} placeholder="nome_fantasia" name="apelido" autoComplete="off"
                 value={apelido} onChange={e => setApelido(e.target.value)} />
             </div>
             <p className="hint">Você aparece como @{apelido.trim().replace(/^@/, '') || 'minha_fantasia'} — ninguém vê seu email.</p>
@@ -100,7 +100,7 @@ export default function Login() {
         )}
         <div className="field">
           <label>Senha</label>
-          <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)}
+          <input type="password" name="password" autoComplete={mode === 'entrar' ? 'current-password' : 'new-password'} placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && submit()} />
         </div>
 
