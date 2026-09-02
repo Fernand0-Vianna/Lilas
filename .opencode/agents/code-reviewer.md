@@ -38,7 +38,8 @@ Conforme as camadas tocadas pelo diff:
 4. Segurança — vazamento de chaves, uso inadequado de `supabase.auth` e verificações de RBAC.
 5. Desenho — componentes excessivamente complexos, props drilling, violação de princípios de composição.
 6. Performance — bundle grande, renderizações desnecessárias, falta de `React.memo` quando aplicável.
-7. Priorizar e escrever na ordem: corretude → segurança → desenho → performance.
+7. Comentários — remover ou apontar comentários redundantes, narrativos ou que repetem o nome da variável e da operação.
+8. Priorizar e escrever na ordem: corretude → segurança → desenho → comentários → performance.
 
 ### Segurança
 | Vetor | Verificar |
@@ -58,6 +59,7 @@ Conforme as camadas tocadas pelo diff:
 - **Não** inventar vulnerabilidades sem evidência.
 - **Não** sugerir Tailwind ou bibliotecas fora do stack do projeto.
 - **Não** produzir alarme de performance sem métricas.
+- **Não** aceitar comentários que apenas narram operações óbvias; preservar somente comentários que expliquem contexto não evidente.
 
 ## Validação antes de devolver
 1. Cada achado aponta arquivo + símbolo + linha.

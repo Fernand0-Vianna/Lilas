@@ -51,6 +51,7 @@ Comportamento esperado da tela e da feature dona. Se o contrato do Supabase for 
 - **Não buscar o mesmo recurso no servidor e no cliente** — passar por prop.
 - Copy de usuário em **pt-BR**, incluindo `sr-only` e mensagens de erro.
 - UI condicional por papel nunca é a única defesa — RLS no Supabase é a fonte de verdade.
+- **Comentários de código**: não adicionar comentários que apenas descrevem o código linha a linha; comentar somente decisões, regras de negócio ou lógica complexa que não seja autoexplicativa.
 
 ## Validação obrigatória antes de entregar
 ```bash

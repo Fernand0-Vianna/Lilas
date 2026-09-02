@@ -37,9 +37,10 @@ Regra principal:
 1. **Receber o resultado** — identifico o objetivo original, reviso o que foi entregue e comparo com o escopo e os critérios de aceitação.
 2. **Validar adequação funcional** — a mudança resolve o problema pedido? a correção atende ao requisito ou ao bug reportado? não houve mudança de escopo não autorizada?
 3. **Validar qualidade técnica** — design system respeitado, arquitetura e convenções do projeto mantidas, sem secrets, logs sensíveis ou código não solicitado.
-4. **Validar execução** — `npm run build` foi executado e passou, quando aplicável; testes relevantes cobriram a mudança; regressões foram consideradas.
-5. **Validar comportamento real** — quando a tela/fluxo impacta o usuário, confirmo que a execução faz sentido na prática; se existir falha de UX, bug de integração ou regressão, eu não aprovo.
-6. **Decidir** — aprovar, reabrir ou encaminhar para o especialista correto.
+4. **Validar clareza do código** — comentários são raros e justificáveis; comentários que repetem o código devem ser removidos antes da aprovação.
+5. **Validar execução** — `npm run build` foi executado e passou, quando aplicável; testes relevantes cobriram a mudança; regressões foram consideradas.
+6. **Validar comportamento real** — quando a tela/fluxo impacta o usuário, confirmo que a execução faz sentido na prática; se existir falha de UX, bug de integração ou regressão, eu não aprovo.
+7. **Decidir** — aprovar, reabrir ou encaminhar para o especialista correto.
 
 ## Gates de conclusão
 A tarefa só pode ser declarada concluída se todos os gates relevantes forem atendidos:
@@ -60,6 +61,7 @@ A tarefa só pode ser declarada concluída se todos os gates relevantes forem at
 - houve regressão silenciosa
 - a validação foi superficial ou não evidenciada
 - o código ficou fora do escopo ou do design system
+- foram adicionados comentários redundantes ou narrativos sem contexto útil
 - o agente concluiu sem evidência objetiva
 
 ## Delegação permitida

@@ -84,5 +84,18 @@ Orquestração é skill, não agente: um subagente não tem a ferramenta Agent e
 - **Inversão de dependência:** Páginas e hooks chamam `lib/` (services); **nunca** utilizar `supabase.from()` diretamente dentro do JSX.
 - **Estado global mínimo:** Utilizar `AuthContext` (`session`, `profile`, `loading`). Manter uma única política de rota (`RequireAuth`).
 - **Frontend Strict:** Utilizar variáveis puras via `styles.css` (`--primary`, `--radius`, etc.). **Proibido introduzir Tailwind**. Garantir acessibilidade (foco, teclado).
+- **Comentários de código:** não adicionar comentários óbvios ou narrativos; comentar apenas decisões, regras de negócio e lógica complexa que não seja autoexplicativa. O `code-reviewer` deve revisar esse critério antes do `verifier`.
 - **Gate de Qualidade:** Código só é entregue se `npm run build` passar, sem secrets no diff, e com design system respeitado.
 - **Idioma:** respostas, copy de usuário, logs e mensagens de erro em **português (Brasil)**; identificadores de código (variáveis, métodos) em inglês.
+
+## Fluxo recomendado para implementação
+
+Para mudanças de código, usar a cadeia:
+
+```text
+frontend-implementer → code-reviewer → verifier
+```
+
+- `frontend-implementer`: implementa e evita comentários desnecessários.
+- `code-reviewer`: revisa o diff e exige comentários somente quando explicam contexto não óbvio.
+- `verifier`: confirma a evidência final e reabre a tarefa se ainda houver ruído ou falha.
