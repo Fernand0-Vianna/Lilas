@@ -49,7 +49,7 @@ export async function updateProfile(userId, { apelido, bio }) {
 export async function fetchUserPosts(userId) {
   const { data, error } = await supabase
     .from('posts')
-    .select('id, title, body, image_url, tag, link_url, created_at, poll_options, profiles!posts_author_id_fkey(id, apelido, avatar_url), communities(name, slug)')
+    .select('id, author_id, title, body, image_url, tag, link_url, created_at, poll_options, poll_votes(option_idx), likes(vote), comments(count), profiles!posts_author_id_fkey(id, apelido, avatar_url), communities(name, slug)')
     .eq('author_id', userId)
     .order('created_at', { ascending: false })
 
@@ -315,7 +315,7 @@ export async function fetchUserActivity(userId) {
 export async function fetchSavedPosts(userId) {
   const { data, error } = await supabase
     .from('saves')
-    .select('post_id, posts(id, title, body, image_url, tag, link_url, created_at, poll_options, profiles!posts_author_id_fkey(id, apelido, avatar_url), communities(name, slug))')
+    .select('post_id, posts(id, author_id, title, body, image_url, tag, link_url, created_at, poll_options, poll_votes(option_idx), likes(vote), comments(count), profiles!posts_author_id_fkey(id, apelido, avatar_url), communities(name, slug))')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
 

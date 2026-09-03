@@ -12,7 +12,7 @@ import ResetPassword from './pages/ResetPassword.jsx'
 import AdminReports from './pages/AdminReports.jsx'
 import BottomNav from './components/BottomNav.jsx'
 import Icon from './components/Icons.jsx'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 function Topbar() {
   const { profile, signOut } = useAuth()
@@ -20,6 +20,18 @@ function Topbar() {
   const [menu, setMenu] = useState(false)
   const [searchExpanded, setSearchExpanded] = useState(false)
   const navigate = useNavigate()
+  const dropdownRef = useRef(null)
+
+  useEffect(() => {
+    if (!menu) return
+    const handleClick = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [menu])
 
   return (
     <header className="topbar">
@@ -51,7 +63,7 @@ function Topbar() {
                 <Link to="/perfil" className="avatar-link mobile-only" title={profile?.apelido}>
                   <span className="avatar">{profile?.avatar_url ? <img src={profile.avatar_url} alt="" /> : (profile?.apelido || '?')[0].toUpperCase()}</span>
                 </Link>
-                <div className={`avatar-dropdown ${menu ? 'open' : ''}`}>
+                <div ref={dropdownRef} className={`avatar-dropdown ${menu ? 'open' : ''}`}>
                   <Link to="/perfil" onClick={() => setMenu(false)}>
                     <Icon name="person" size={14} /> Meu perfil
                   </Link>
@@ -68,7 +80,7 @@ function Topbar() {
               <Icon name="chevron-left" size={20} />
             </button>
             <form onSubmit={e => { e.preventDefault(); if (q.trim()) { navigate(`/?q=${encodeURIComponent(q.trim())}`); setSearchExpanded(false); } }} className="mobile-search-form-top">
-              <input autoFocus placeholder="Buscar..." value={q} onChange={e => setQ(e.target.value)} />
+              <input type="search" autoFocus placeholder="Buscar..." value={q} onChange={e => setQ(e.target.value)} />
             </form>
             {q && (
               <button className="search-clear-btn-top" onClick={() => setQ('')} aria-label="Limpar">

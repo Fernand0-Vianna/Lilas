@@ -13,6 +13,13 @@
   "skills": {
     "paths": [".opencode/skills"]
   },
+  "mcp": {
+    "playwright": {
+      "type": "local",
+      "command": ["npx", "-y", "@playwright/mcp@latest"],
+      "enabled": true
+    }
+  },
   "references": {
     "docs": {
       "path": "docs",
@@ -34,7 +41,13 @@
     "orchestrator": { "mode": "primary" },
     "code-reviewer": { "mode": "subagent", "permission": { "edit": "deny" } },
     "frontend-architect": { "mode": "subagent", "permission": { "edit": "deny" } },
-    "e2e-qa-engineer": { "mode": "subagent", "permission": { "edit": "deny" } },
+    "e2e-qa-engineer": {
+      "mode": "subagent",
+      "permission": {
+        "edit": "deny",
+        "playwright_*": "allow"
+      }
+    },
     "debug-specialist": { "mode": "subagent" },
     "frontend-implementer": { "mode": "subagent" },
     "performance-optimizer": { "mode": "subagent" },

@@ -11,9 +11,12 @@ function hotScore(post) {
 }
 
 function useFeed(q) {
+  const { session } = useAuth()
   const [posts, setPosts] = useState([])
   const [communities, setCommunities] = useState([])
   const [users, setUsers] = useState([])
+  const [userVotes, setUserVotes] = useState({})
+  const [userSaves, setUserSaves] = useState({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -32,26 +35,47 @@ function useFeed(q) {
       query,
       supabase.from('communities').select('*').order('members', { ascending: false }).limit(10),
       usersQuery
-    ]).then(([p, c, u]) => {
-      setPosts(p.data || [])
+    ]).then(async ([p, c, u]) => {
+      const allPosts = p.data || []
+      setPosts(allPosts)
       setCommunities(c.data || [])
       setUsers(u.data || [])
+
+      const postIds = allPosts.map(x => x.id)
+      if (postIds.length && session?.user?.id) {
+        const [likesRes, savesRes] = await Promise.all([
+          supabase.from('likes').select('post_id, vote').in('post_id', postIds).eq('user_id', session.user.id),
+          supabase.from('saves').select('post_id').in('post_id', postIds).eq('user_id', session.user.id)
+        ])
+        const votesMap = {}
+        ;(likesRes.data || []).forEach(r => { votesMap[r.post_id] = r.vote })
+        const savesMap = {}
+        ;(savesRes.data || []).forEach(r => { savesMap[r.post_id] = true })
+        setUserVotes(votesMap)
+        setUserSaves(savesMap)
+      } else {
+        setUserVotes({})
+        setUserSaves({})
+      }
+
       setLoading(false)
     }).catch(() => {
       setPosts([])
       setCommunities([])
       setUsers([])
+      setUserVotes({})
+      setUserSaves({})
       setLoading(false)
     })
-  }, [q])
+  }, [q, session?.user?.id])
 
-  return { posts, communities, users, loading, removePost: id => setPosts(p => p.filter(x => x.id !== id)) }
+  return { posts, communities, users, userVotes, userSaves, loading, removePost: id => setPosts(p => p.filter(x => x.id !== id)) }
 }
 
 export default function Feed() {
   const [params] = useSearchParams()
   const q = params.get('q') || ''
-  const { posts, communities, users, loading, removePost } = useFeed(q)
+  const { posts, communities, users, userVotes, userSaves, loading, removePost } = useFeed(q)
   const { profile } = useAuth()
   const [tab, setTab] = useState('hot')
 
@@ -111,7 +135,7 @@ export default function Feed() {
             <button className={tab === 'top' ? 'active' : ''} onClick={() => setTab('top')}>Mais votado</button>
           </div>
           {loading ? <p style={{ color: 'var(--muted)' }}>Carregando...</p> :
-            visible.map(p => <PostCard key={p.id} post={p} onDeleted={() => removePost(p.id)} />)}
+            visible.map(p => <PostCard key={p.id} post={p} onDeleted={() => removePost(p.id)} userVote={userVotes[p.id]} userSaved={userSaves[p.id]} />)}
           {!loading && visible.length === 0 && (
             <div className="card" style={{ textAlign: 'center', padding: 40 }}>
               <h3>{q ? 'Nada encontrado' : 'Nada por aqui ainda'}</h3>

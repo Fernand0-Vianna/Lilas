@@ -6,3 +6,4 @@ client/.env
 # Local Netlify folder
 .netlify
 mm
+.playwright-mcp/

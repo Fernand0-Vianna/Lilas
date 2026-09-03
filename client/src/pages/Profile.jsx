@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
 import { compact, timeAgo } from '../lib/format.js'
 import {
@@ -304,6 +305,8 @@ export default function Profile() {
   const [profile, setProfile] = useState(null)
   const [posts, setPosts] = useState([])
   const [savedPosts, setSavedPosts] = useState([])
+  const [userVotes, setUserVotes] = useState({})
+  const [userSaves, setUserSaves] = useState({})
   const [following, setFollowing] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
   const [stats, setStats] = useState({ posts: 0, likes: 0, comments: 0, followers: 0, following: 0 })
@@ -355,6 +358,20 @@ export default function Profile() {
           followers: followersR.count || 0,
           following: followingR.count || 0
         })
+
+        if (postIds.length) {
+          const [likesRes, savesRes] = await Promise.all([
+            supabase.from('likes').select('post_id, vote').in('post_id', postIds).eq('user_id', session.user.id),
+            supabase.from('saves').select('post_id').in('post_id', postIds).eq('user_id', session.user.id)
+          ])
+          const votesMap = {}
+          ;(likesRes.data || []).forEach(r => { votesMap[r.post_id] = r.vote })
+          const savesMap = {}
+          ;(savesRes.data || []).forEach(r => { savesMap[r.post_id] = true })
+          setUserVotes(votesMap)
+          setUserSaves(savesMap)
+        }
+
         setLoading(false)
       })()
       return
@@ -390,6 +407,20 @@ export default function Profile() {
         followers: followersR.count || 0,
         following: followingR.count || 0
       })
+
+      if (postIds.length) {
+        const [likesRes, savesRes] = await Promise.all([
+          supabase.from('likes').select('post_id, vote').in('post_id', postIds).eq('user_id', session.user.id),
+          supabase.from('saves').select('post_id').in('post_id', postIds).eq('user_id', session.user.id)
+        ])
+        const votesMap = {}
+        ;(likesRes.data || []).forEach(r => { votesMap[r.post_id] = r.vote })
+        const savesMap = {}
+        ;(savesRes.data || []).forEach(r => { savesMap[r.post_id] = true })
+        setUserVotes(votesMap)
+        setUserSaves(savesMap)
+      }
+
       setLoading(false)
     })
   }, [apelido, session.user.id, authProfile?.id])
@@ -468,7 +499,23 @@ export default function Profile() {
 
   useEffect(() => {
     if (tab !== 'saves') return
-    fetchSavedPosts(session.user.id).then(({ data }) => setSavedPosts(data || []))
+    fetchSavedPosts(session.user.id).then(async ({ data }) => {
+      const posts = data || []
+      setSavedPosts(posts)
+      const postIds = posts.map(p => p.id)
+      if (postIds.length) {
+        const [likesRes, savesRes] = await Promise.all([
+          supabase.from('likes').select('post_id, vote').in('post_id', postIds).eq('user_id', session.user.id),
+          supabase.from('saves').select('post_id').in('post_id', postIds).eq('user_id', session.user.id)
+        ])
+        const votesMap = {}
+        ;(likesRes.data || []).forEach(r => { votesMap[r.post_id] = r.vote })
+        const savesMap = {}
+        ;(savesRes.data || []).forEach(r => { savesMap[r.post_id] = true })
+        setUserVotes(votesMap)
+        setUserSaves(savesMap)
+      }
+    })
   }, [tab, session.user.id])
 
   if (loading || (!notFound && !profile)) return <ProfileSkeleton />
@@ -593,7 +640,7 @@ export default function Profile() {
         {tab === 'posts' ? (
           <div className="profile-grid">
             <div className="profile-posts">
-              {posts.map(p => <PostCard key={p.id} post={p} onDeleted={() => setPosts(ps => ps.filter(x => x.id !== p.id))} />)}
+              {posts.map(p => <PostCard key={p.id} post={p} onDeleted={() => setPosts(ps => ps.filter(x => x.id !== p.id))} userVote={userVotes[p.id]} userSaved={userSaves[p.id]} />)}
               {posts.length === 0 && (
                 <div className="card profile-empty-card">
                   <Icon name="pen" size={32} style={{ color: 'var(--muted-2)', marginBottom: 8 }} />
@@ -629,7 +676,7 @@ export default function Profile() {
         ) : (
           <div className="profile-grid">
             <div className="profile-posts">
-              {savedPosts.map(p => <PostCard key={p.id} post={p} onDeleted={() => setSavedPosts(ps => ps.filter(x => x.id !== p.id))} />)}
+              {savedPosts.map(p => <PostCard key={p.id} post={p} onDeleted={() => setSavedPosts(ps => ps.filter(x => x.id !== p.id))} userVote={userVotes[p.id]} userSaved={userSaves[p.id]} />)}
               {savedPosts.length === 0 && (
                 <div className="card profile-empty-card">
                   <Icon name="bookmark" size={32} style={{ color: 'var(--muted-2)', marginBottom: 8 }} />

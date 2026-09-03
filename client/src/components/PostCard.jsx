@@ -25,14 +25,22 @@ function Poll({ post }) {
 
   async function vote(i) {
     if (mine === i) return
-    const prev = mine
+    const prevMine = mine
     setMine(i)
-    setCounts(c => c.map((x, j) => j === i ? x + 1 : j === prev ? x - 1 : x))
+    setCounts(c => c.map((x, j) => {
+      if (j === i) return x + 1
+      if (prevMine !== -1 && j === prevMine) return x - 1
+      return x
+    }))
     const { error } = await supabase.from('poll_votes')
       .upsert({ post_id: post.id, user_id: session.user.id, option_idx: i })
     if (error) {
-      setMine(prev)
-      setCounts(c => c.map((x, j) => j === i ? x - 1 : j === prev ? x + 1 : x))
+      setMine(prevMine)
+      setCounts(c => c.map((x, j) => {
+        if (j === i) return x - 1
+        if (prevMine !== -1 && j === prevMine) return x + 1
+        return x
+      }))
     }
   }
 
@@ -54,13 +62,13 @@ function Poll({ post }) {
   )
 }
 
-export default function PostCard({ post, onDeleted, canModerate }) {
+export default function PostCard({ post, onDeleted, canModerate, userVote, userSaved }) {
   const { session, profile } = useAuth()
   const navigate = useNavigate()
-  const [vote, setVote] = useState(0)
+  const [vote, setVote] = useState(userVote ?? 0)
   const [score, setScore] = useState(0)
   const [comments, setComments] = useState(0)
-  const [saved, setSaved] = useState(false)
+  const [saved, setSaved] = useState(userSaved ?? false)
   const [reporting, setReporting] = useState(false)
   const [reason, setReason] = useState('')
   const [reported, setReported] = useState(false)
@@ -71,14 +79,31 @@ export default function PostCard({ post, onDeleted, canModerate }) {
     setAuthor(post.profiles || null)
     setScore((post.likes || []).reduce((s, l) => s + (l.vote || 0), 0))
     setComments(post.comments?.[0]?.count ?? 0)
-    Promise.all([
-      supabase.from('likes').select('vote').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle(),
-      supabase.from('saves').select('post_id').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle()
-    ]).then(([me, s]) => {
-      setVote(me.data?.vote ?? 0)
-      setSaved(!!s.data)
-    })
-  }, [post.id])
+    setVote(userVote ?? 0)
+    setSaved(userSaved ?? false)
+
+    if (userVote === undefined || userSaved === undefined) {
+      const queries = []
+      if (userVote === undefined) {
+        queries.push(
+          supabase.from('likes').select('vote').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle()
+            .then(r => ({ type: 'vote', data: r.data?.vote ?? 0 }))
+        )
+      }
+      if (userSaved === undefined) {
+        queries.push(
+          supabase.from('saves').select('post_id').eq('post_id', post.id).eq('user_id', session.user.id).maybeSingle()
+            .then(r => ({ type: 'save', data: !!r.data }))
+        )
+      }
+      Promise.all(queries).then(results => {
+        results.forEach(({ type, data }) => {
+          if (type === 'vote') setVote(data)
+          if (type === 'save') setSaved(data)
+        })
+      })
+    }
+  }, [post.id, userVote, userSaved])
 
   async function castVote(v) {
     if (vote === v) v = 0
@@ -92,7 +117,7 @@ export default function PostCard({ post, onDeleted, canModerate }) {
   async function toggleSave() {
     const prev = saved
     setSaved(!saved)
-    const { error } = saved
+    const { error } = prev
       ? await supabase.from('saves').delete().eq('post_id', post.id).eq('user_id', session.user.id)
       : await supabase.from('saves').insert({ post_id: post.id, user_id: session.user.id })
     if (error) setSaved(prev)
@@ -122,7 +147,7 @@ export default function PostCard({ post, onDeleted, canModerate }) {
         <button className={`vote-btn up ${vote === 1 ? 'on' : ''}`} onClick={() => castVote(1)} title="Votar a favor">
           <Icon name="up" size={14} />
         </button>
-        <span className={`score ${vote === 1 ? 'up' : vote === -1 ? 'down' : ''}`}>{compact(score)}</span>
+        <span className={`score ${vote === 1 ? 'up' : vote === -1 ? 'down' : ''}`} title={`${score} ${score === 1 ? 'voto' : 'votos'}`}>{compact(score)}</span>
         <button className={`vote-btn down ${vote === -1 ? 'on' : ''}`} onClick={() => castVote(-1)} title="Votar contra">
           <Icon name="down" size={14} />
         </button>
@@ -161,7 +186,7 @@ export default function PostCard({ post, onDeleted, canModerate }) {
         ) : (
           <Link to={`/post/${post.id}`} className="post-link">
             <h3 className="post-title">
-              {post.tag && <Link to={`/?q=${encodeURIComponent(post.tag)}`} className="tag-chip" onClick={e => e.stopPropagation()}>{post.tag}</Link>}
+              {post.tag && <span className="tag-chip" onClick={e => { e.preventDefault(); e.stopPropagation(); navigate(`/?q=${encodeURIComponent(post.tag)}`) }}>{post.tag}</span>}
               {post.title}
             </h3>
             {post.body && <p className="post-body">{post.body}</p>}

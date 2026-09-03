@@ -7,7 +7,7 @@ description: Executa regressão end-to-end exploratória do frontend Lilás pela
 
 Fonte única da metodologia E2E e da sua orquestração. Testa a aplicação como um usuário real, pela interface visual, e não pela leitura de código. Complementa, sem substituir, cenários BDD futuros ([`frontend-skill`](../frontend-skill/SKILL.md) §12).
 
-Execução: esta skill roda na thread principal e delega a execução ao subagente [`e2e-qa-engineer`](../../agents/e2e-qa-engineer.md), que detém as ferramentas de browser. Esse agente lê este arquivo no arranque — não repetir metodologia no prompt de delegação.
+Execução: esta skill roda na thread principal e delega a execução ao subagente [`e2e-qa-engineer`](../../agents/e2e-qa-engineer.md), que usa o servidor MCP `playwright`. Esse agente lê este arquivo no arranque — não repetir metodologia no prompt de delegação.
 
 Argumento opcional de escopo: `auth`, `feed`, `post`, `create`, `communities`, `profile`, `admin`. Vazio = regressão completa.
 
@@ -29,10 +29,10 @@ Argumento opcional de escopo: `auth`, `feed`, `post`, `create`, `communities`, `
 ## 2. Passo 0 — Pré-condições (sempre primeiro e bloqueantes)
 | Serviço | Como subir | Porta |
 | ------- | ---------- | ----- |
-| Frontend (Vite dev) | `preview_start({ url: "http://localhost:5173" })` | `5173` |
+| Frontend (Vite dev) | iniciar com `npm run dev` em `client/` | `5173` |
 | Supabase (projeto vinculado) | Conforme `docs/README.md` | HTTPS |
 
-1. Preview em execução. Se a porta `5173` estiver ocupada por processo fora do preview, não matar; anexar com `preview_start({ url: "http://localhost:5173" })`.
+1. Frontend em execução. Se a porta `5173` estiver ocupada por processo fora do OpenCode, não matar; usar a URL existente com o Playwright MCP.
 2. Confirmar que é a app correta. Ler título/conteúdo ("Lilás"). Se for outra coisa, pode ser outro projeto Vite na mesma porta — parar e avisar.
 3. Confirmar que o Supabase está acessível antes de qualquer fluxo autenticado ou com dado real. Se não estiver, parar e registrar bloqueio de ambiente.
 4. Confirmar restrições de dados com o usuário antes de iniciar CRUDs (por exemplo: "não criar posts novos", "não mexer nos perfis existentes").
@@ -102,7 +102,7 @@ Reprodutibilidade: Sempre / Intermitente / Uma vez — registrar passos exatos m
 ---
 
 ## 6. Fase 4 — Execução
-Delegar ao subagente `e2e-qa-engineer` um módulo por vez, sequencialmente e em foreground — nunca em paralelo: todos compartilham a mesma aba e sessão autenticada. Em cada prompt de delegação, informar apenas:
+Delegar ao subagente `e2e-qa-engineer` um módulo por vez, sequencialmente e em foreground — nunca em paralelo: todos compartilham a mesma sessão do Playwright MCP. Em cada prompt de delegação, informar apenas:
 1. Módulo em escopo e cenários dessa fatia.
 2. Estado da sessão (autenticada como qual papel) e `tabId`/URL onde continuar.
 3. Restrições de dados acordadas no Passo 0.
