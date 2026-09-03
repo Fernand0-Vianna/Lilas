@@ -119,6 +119,57 @@ export default function Post() {
     })
   }, [id, session?.user?.id])
 
+  // Real-time: sincroniza comentários em tempo real
+  useEffect(() => {
+    const channel = supabase
+      .channel('post-comments')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments', filter: `post_id=eq.${id}` }, (payload) => {
+        supabase.from('comments')
+          .select('*, profiles!comments_author_id_fkey(apelido, avatar_url), comment_votes(vote)')
+          .eq('id', payload.new.id)
+          .single()
+          .then(({ data }) => {
+            if (data) {
+              setComments(prev => {
+                if (prev.some(c => c.id === data.id)) return prev
+                return [...prev, data]
+              })
+            }
+          })
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'comments', filter: `post_id=eq.${id}` }, (payload) => {
+        setComments(prev => prev.filter(c => c.id !== payload.old.id))
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [id])
+
+  // Real-time: sincroniza votos da enquete
+  useEffect(() => {
+    const channel = supabase
+      .channel('post-poll-votes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'poll_votes', filter: `post_id=eq.${id}` }, (payload) => {
+        setPost(prev => {
+          if (!prev || !prev.poll_options) return prev
+          let newVotes = [...(prev.poll_votes || [])]
+
+          if (payload.eventType === 'INSERT') {
+            newVotes.push(payload.new)
+          } else if (payload.eventType === 'UPDATE') {
+            newVotes = newVotes.map(v => v.user_id === payload.new.user_id ? payload.new : v)
+          } else if (payload.eventType === 'DELETE') {
+            newVotes = newVotes.filter(v => v.user_id !== payload.old?.user_id)
+          }
+
+          return { ...prev, poll_votes: newVotes }
+        })
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [id])
+
   function descendants(parentId) {
     const out = []
     const walk = pid => comments.filter(c => c.parent_id === pid).forEach(c => { out.push(c); walk(c.id) })

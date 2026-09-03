@@ -71,6 +71,37 @@ function useFeed(q) {
     })
   }, [q, session?.user?.id])
 
+  // Real-time: sincroniza votos (likes) entre usuários
+  useEffect(() => {
+    const channel = supabase
+      .channel('feed-likes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'likes' }, (payload) => {
+        const postId = payload.new?.post_id || payload.old?.post_id
+        if (!postId) return
+
+        setPosts(prev => prev.map(p => {
+          if (p.id !== postId) return p
+          let newLikes = [...(p.likes || [])]
+
+          if (payload.eventType === 'DELETE') {
+            newLikes = newLikes.filter(l => l.user_id !== payload.old?.user_id)
+          } else if (payload.eventType === 'INSERT') {
+            newLikes.push({ vote: payload.new.vote, user_id: payload.new.user_id })
+          } else if (payload.eventType === 'UPDATE') {
+            newLikes = newLikes.map(l =>
+              l.user_id === payload.new.user_id ? { ...l, vote: payload.new.vote } : l
+            )
+          }
+
+          const newScore = newLikes.reduce((s, l) => s + (l.vote || 0), 0)
+          return { ...p, likes: newLikes, score: newScore }
+        }))
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [])
+
   const removePost = useCallback(id => {
     setPosts(p => p.filter(x => x.id !== id))
   }, [])
