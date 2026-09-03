@@ -305,6 +305,31 @@ export async function fetchUserActivity(userId) {
   return { data: items.slice(0, 15), error: null }
 }
 
+// VOTOS E SALVAMENTOS EM LOTE
+
+/**
+ * Busca votos (likes) e saves de múltiplos posts para um usuário
+ * @param {string[]} postIds - IDs dos posts
+ * @param {string} userId - ID do usuário
+ * @returns {Promise<{votesMap: object, savesMap: object}>}
+ */
+export async function fetchVotesAndSaves(postIds, userId) {
+  if (!postIds.length || !userId) return { votesMap: {}, savesMap: {} }
+
+  const [likesRes, savesRes] = await Promise.all([
+    supabase.from('likes').select('post_id, vote').in('post_id', postIds).eq('user_id', userId),
+    supabase.from('saves').select('post_id').in('post_id', postIds).eq('user_id', userId)
+  ])
+
+  const votesMap = {}
+  ;(likesRes.data || []).forEach(r => { votesMap[r.post_id] = r.vote })
+
+  const savesMap = {}
+  ;(savesRes.data || []).forEach(r => { savesMap[r.post_id] = true })
+
+  return { votesMap, savesMap }
+}
+
 // POSTS SALVOS
 
 /**

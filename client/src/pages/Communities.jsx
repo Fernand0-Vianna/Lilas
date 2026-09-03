@@ -3,11 +3,13 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
 import { compact } from '../lib/format.js'
+import CommunitiesSkeleton from '../components/CommunitiesSkeleton.jsx'
 
 export default function Communities() {
   const { session } = useAuth()
   const [communities, setCommunities] = useState([])
   const [joined, setJoined] = useState({})
+  const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
 
   useEffect(() => {
@@ -19,6 +21,9 @@ export default function Communities() {
       const map = {}
       ;(j.data || []).forEach(m => { map[m.community_id] = true })
       setJoined(map)
+      setLoading(false)
+    }).catch(() => {
+      setLoading(false)
     })
   }, [session.user.id])
 
@@ -36,6 +41,8 @@ export default function Communities() {
   const list = q
     ? communities.filter(c => c.name.toLowerCase().includes(q) || (c.description || '').toLowerCase().includes(q))
     : communities
+
+  if (loading) return <CommunitiesSkeleton />
 
   return (
     <div className="container" style={{ maxWidth: 760 }}>

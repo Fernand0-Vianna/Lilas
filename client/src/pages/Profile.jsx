@@ -21,7 +21,8 @@ import {
   countFollowers,
   countFollowing,
   fetchUserKarma,
-  countCommentsOnPosts
+  countCommentsOnPosts,
+  fetchVotesAndSaves
 } from '../lib/profile-service.js'
 import PostCard from '../components/PostCard.jsx'
 import ConfirmModal from '../components/ConfirmModal.jsx'
@@ -326,6 +327,7 @@ export default function Profile() {
   }, [])
 
   useEffect(() => {
+    let cancelled = false
     setLoading(true)
     setNotFound(false)
     setTab('posts')
@@ -349,6 +351,7 @@ export default function Profile() {
           postIds.length ? countCommentsOnPosts(postIds) : Promise.resolve({ count: 0 })
         ])
 
+        if (cancelled) return
         setPosts(postsR.data || [])
         setFollowing(false)
         setStats({
@@ -360,21 +363,16 @@ export default function Profile() {
         })
 
         if (postIds.length) {
-          const [likesRes, savesRes] = await Promise.all([
-            supabase.from('likes').select('post_id, vote').in('post_id', postIds).eq('user_id', session.user.id),
-            supabase.from('saves').select('post_id').in('post_id', postIds).eq('user_id', session.user.id)
-          ])
-          const votesMap = {}
-          ;(likesRes.data || []).forEach(r => { votesMap[r.post_id] = r.vote })
-          const savesMap = {}
-          ;(savesRes.data || []).forEach(r => { savesMap[r.post_id] = true })
-          setUserVotes(votesMap)
-          setUserSaves(savesMap)
+          const { votesMap, savesMap } = await fetchVotesAndSaves(postIds, session.user.id)
+          if (!cancelled) {
+            setUserVotes(votesMap)
+            setUserSaves(savesMap)
+          }
         }
 
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       })()
-      return
+      return () => { cancelled = true }
     }
 
     // Se tem apelido na URL e já temos o profile com esse apelido, não re-buscar
@@ -382,6 +380,7 @@ export default function Profile() {
 
     // Caso contrário, buscar perfil pelo apelido
     fetchProfileByApelido(apelido).then(async ({ data }) => {
+      if (cancelled) return
       if (!data) { setNotFound(true); setLoading(false); return }
       setProfile(data)
       if (params.get('editar') === '1') setEditOpen(true)
@@ -398,6 +397,7 @@ export default function Profile() {
         postIds.length ? countCommentsOnPosts(postIds) : Promise.resolve({ count: 0 })
       ])
 
+      if (cancelled) return
       setPosts(postsR.data || [])
       setFollowing(!!followR.isFollowing)
       setStats({
@@ -409,20 +409,16 @@ export default function Profile() {
       })
 
       if (postIds.length) {
-        const [likesRes, savesRes] = await Promise.all([
-          supabase.from('likes').select('post_id, vote').in('post_id', postIds).eq('user_id', session.user.id),
-          supabase.from('saves').select('post_id').in('post_id', postIds).eq('user_id', session.user.id)
-        ])
-        const votesMap = {}
-        ;(likesRes.data || []).forEach(r => { votesMap[r.post_id] = r.vote })
-        const savesMap = {}
-        ;(savesRes.data || []).forEach(r => { savesMap[r.post_id] = true })
-        setUserVotes(votesMap)
-        setUserSaves(savesMap)
+        const { votesMap, savesMap } = await fetchVotesAndSaves(postIds, session.user.id)
+        if (!cancelled) {
+          setUserVotes(votesMap)
+          setUserSaves(savesMap)
+        }
       }
 
-      setLoading(false)
+      if (!cancelled) setLoading(false)
     })
+    return () => { cancelled = true }
   }, [apelido, session.user.id, authProfile?.id])
 
   async function handleToggleFollow() {
@@ -504,14 +500,7 @@ export default function Profile() {
       setSavedPosts(posts)
       const postIds = posts.map(p => p.id)
       if (postIds.length) {
-        const [likesRes, savesRes] = await Promise.all([
-          supabase.from('likes').select('post_id, vote').in('post_id', postIds).eq('user_id', session.user.id),
-          supabase.from('saves').select('post_id').in('post_id', postIds).eq('user_id', session.user.id)
-        ])
-        const votesMap = {}
-        ;(likesRes.data || []).forEach(r => { votesMap[r.post_id] = r.vote })
-        const savesMap = {}
-        ;(savesRes.data || []).forEach(r => { savesMap[r.post_id] = true })
+        const { votesMap, savesMap } = await fetchVotesAndSaves(postIds, session.user.id)
         setUserVotes(votesMap)
         setUserSaves(savesMap)
       }
@@ -640,7 +629,7 @@ export default function Profile() {
         {tab === 'posts' ? (
           <div className="profile-grid">
             <div className="profile-posts">
-              {posts.map(p => <PostCard key={p.id} post={p} onDeleted={() => setPosts(ps => ps.filter(x => x.id !== p.id))} userVote={userVotes[p.id]} userSaved={userSaves[p.id]} />)}
+              {posts.map(p => <PostCard key={p.id} post={p} onRemove={() => setPosts(ps => ps.filter(x => x.id !== p.id))} userVote={userVotes[p.id]} userSaved={userSaves[p.id]} />)}
               {posts.length === 0 && (
                 <div className="card profile-empty-card">
                   <Icon name="pen" size={32} style={{ color: 'var(--muted-2)', marginBottom: 8 }} />
@@ -676,7 +665,7 @@ export default function Profile() {
         ) : (
           <div className="profile-grid">
             <div className="profile-posts">
-              {savedPosts.map(p => <PostCard key={p.id} post={p} onDeleted={() => setSavedPosts(ps => ps.filter(x => x.id !== p.id))} userVote={userVotes[p.id]} userSaved={userSaves[p.id]} />)}
+              {savedPosts.map(p => <PostCard key={p.id} post={p} onRemove={() => setSavedPosts(ps => ps.filter(x => x.id !== p.id))} userVote={userVotes[p.id]} userSaved={userSaves[p.id]} />)}
               {savedPosts.length === 0 && (
                 <div className="card profile-empty-card">
                   <Icon name="bookmark" size={32} style={{ color: 'var(--muted-2)', marginBottom: 8 }} />
@@ -716,4 +705,3 @@ export default function Profile() {
     </div>
   )
 }
-

@@ -19,7 +19,7 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 html, body {
-  overflow-x: hidden;
+  overflow-x: clip;
   max-width: 100vw;
 }
 
@@ -164,7 +164,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 }
 .rail-item .r--img { background-size: cover; background-position: center; color: transparent; }
 .main { display: flex; flex-direction: column; gap: 12px; }
-.side { display: flex; flex-direction: column; gap: 12px; }
+.side { display: flex; flex-direction: column; gap: 12px; position: sticky; top: 64px; }
 
 /* ---------- Cards ---------- */
 .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
@@ -908,15 +908,15 @@ textarea { width: 100%; resize: vertical; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 12px 8px;
+  gap: 1px;
+  padding: 8px 4px;
   width: 36px;
   flex-shrink: 0;
 }
 
 .skel-post-content {
   flex: 1;
-  padding: 12px;
+  padding: 10px 12px 0;
   min-width: 0;
 }
 
@@ -924,15 +924,16 @@ textarea { width: 100%; resize: vertical; }
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .skel-post-actions {
   display: flex;
-  gap: 8px;
+  gap: 2px;
   border-top: 1px solid var(--border);
-  padding-top: 8px;
-  margin-top: 8px;
+  padding-top: 6px;
+  margin-top: 6px;
+  padding-bottom: 8px;
 }
 
 /* Profile skeleton side card */
@@ -953,6 +954,41 @@ textarea { width: 100%; resize: vertical; }
   .profile-identity .profile-actions {
     justify-content: center;
   }
+}
+
+/* Skeleton para item da rail (comunidades) */
+.skel-rail-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+
+/* Skeleton para card de comunidade */
+.skel-comm-card {
+  display: flex;
+  gap: 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  align-items: center;
+}
+
+/* Skeleton para row de comentário */
+.skel-comment-row {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.skel-comment-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 /* Desktop skeleton adjustments */

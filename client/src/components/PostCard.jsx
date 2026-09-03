@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
@@ -62,7 +62,7 @@ function Poll({ post }) {
   )
 }
 
-export default function PostCard({ post, onDeleted, canModerate, userVote, userSaved }) {
+export default memo(function PostCard({ post, onRemove, canModerate, userVote, userSaved }) {
   const { session, profile } = useAuth()
   const navigate = useNavigate()
   const [vote, setVote] = useState(userVote ?? 0)
@@ -134,7 +134,7 @@ export default function PostCard({ post, onDeleted, canModerate, userVote, userS
   async function doDeletePost() {
     await supabase.from('posts').delete().eq('id', post.id)
     setConfirmDelete(false)
-    if (onDeleted) onDeleted()
+    if (onRemove) onRemove(post.id)
     else navigate('/')
   }
 
@@ -237,4 +237,4 @@ export default function PostCard({ post, onDeleted, canModerate, userVote, userS
       )}
     </article>
   )
-}
+})

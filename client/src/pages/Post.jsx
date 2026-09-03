@@ -6,6 +6,7 @@ import PostCard from '../components/PostCard.jsx'
 import ConfirmModal from '../components/ConfirmModal.jsx'
 import { compact } from '../lib/format.js'
 import Icon from '../components/Icons.jsx'
+import PostSkeleton from '../components/PostSkeleton.jsx'
 
 function ReportComment({ commentId }) {
   const { session } = useAuth()
@@ -83,7 +84,7 @@ export default function Post() {
     Promise.all([
       supabase
         .from('posts')
-        .select('*, profiles!posts_author_id_fkey(apelido), communities(slug, name), likes(vote), comments(count), poll_votes(option_idx)')
+        .select('id, title, body, image_url, tag, link_url, created_at, author_id, community_id, poll_options, profiles!posts_author_id_fkey(id, apelido, avatar_url), communities(slug, name), likes(vote), comments(count), poll_votes(option_idx)')
         .eq('id', id)
         .single(),
       supabase.from('comments')
@@ -113,8 +114,10 @@ export default function Post() {
       }
       setComments(list)
       setLoading(false)
+    }).catch(() => {
+      setLoading(false)
     })
-  }, [id])
+  }, [id, session?.user?.id])
 
   function descendants(parentId) {
     const out = []
@@ -165,7 +168,7 @@ export default function Post() {
     setEditBody('')
   }
 
-  if (loading) return <div className="container" style={{ paddingTop: 24 }}>Carregando...</div>
+  if (loading) return <PostSkeleton />
   if (!post) return <div className="container" style={{ paddingTop: 24 }}>Post não encontrado.</div>
 
   // lista plana -> linhas em ordem de thread (DFS), profundidade limitada no recuo
@@ -194,7 +197,7 @@ export default function Post() {
   return (
     <div className="container" style={{ maxWidth: 760 }}>
       <div style={{ paddingTop: 24 }}>
-        <PostCard post={post} canModerate={isMod} onDeleted={() => navigate('/')} userVote={userVote} userSaved={userSaved} />
+        <PostCard post={post} canModerate={isMod} onRemove={() => navigate('/')} userVote={userVote} userSaved={userSaved} />
         <div className="card" style={{ marginTop: 16 }}>
           <h3 style={{ fontSize: 16, marginBottom: 12 }}>Comentários</h3>
           {replyForm(addComment, body, setBody)}

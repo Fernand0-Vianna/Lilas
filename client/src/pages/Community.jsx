@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
+import { fetchVotesAndSaves } from '../lib/profile-service.js'
 import PostCard from '../components/PostCard.jsx'
+import CommunitySkeleton from '../components/CommunitySkeleton.jsx'
 import { compact } from '../lib/format.js'
 
 function ModPanel({ community, onRulesSaved }) {
@@ -122,6 +124,10 @@ export default function Community() {
   const [notFound, setNotFound] = useState(false)
   const [toast, setToast] = useState('')
 
+  const removePost = useCallback(id => {
+    setPosts(ps => ps.filter(x => x.id !== id))
+  }, [])
+
   useEffect(() => {
     setLoading(true)
     setNotFound(false)
@@ -141,18 +147,13 @@ export default function Community() {
 
       const postIds = allPosts.map(x => x.id)
       if (postIds.length && session?.user?.id) {
-        const [likesRes, savesRes] = await Promise.all([
-          supabase.from('likes').select('post_id, vote').in('post_id', postIds).eq('user_id', session.user.id),
-          supabase.from('saves').select('post_id').in('post_id', postIds).eq('user_id', session.user.id)
-        ])
-        const votesMap = {}
-        ;(likesRes.data || []).forEach(r => { votesMap[r.post_id] = r.vote })
-        const savesMap = {}
-        ;(savesRes.data || []).forEach(r => { savesMap[r.post_id] = true })
+        const { votesMap, savesMap } = await fetchVotesAndSaves(postIds, session.user.id)
         setUserVotes(votesMap)
         setUserSaves(savesMap)
       }
 
+      setLoading(false)
+    }).catch(() => {
       setLoading(false)
     })
   }, [slug, session.user.id])
@@ -170,7 +171,7 @@ export default function Community() {
     }
   }
 
-  if (loading) return <div className="container" style={{ paddingTop: 24 }}>Carregando...</div>
+  if (loading) return <CommunitySkeleton />
   if (notFound) return <div className="container" style={{ paddingTop: 24 }}>Comunidade não encontrada.</div>
 
   return (
@@ -215,7 +216,7 @@ export default function Community() {
           </div>
         )}
         {posts.map(p => (
-          <PostCard key={p.id} post={p} canModerate={isMod} onDeleted={() => setPosts(ps => ps.filter(x => x.id !== p.id))} userVote={userVotes[p.id]} userSaved={userSaves[p.id]} />
+          <PostCard key={p.id} post={p} canModerate={isMod} onRemove={removePost} userVote={userVotes[p.id]} userSaved={userSaves[p.id]} />
         ))}
           </div>
           <aside className="comm-sidebar">
