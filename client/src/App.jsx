@@ -5,6 +5,7 @@ import logo from './assets/lilas-logo.svg'
 import Feed from './pages/Feed.jsx'
 import Post from './pages/Post.jsx'
 import Create from './pages/Create.jsx'
+import CreateCommunity from './pages/CreateCommunity.jsx'
 import Communities from './pages/Communities.jsx'
 import Community from './pages/Community.jsx'
 import Profile from './pages/Profile.jsx'
@@ -135,6 +136,7 @@ function AppRoutes() {
       <Route path="/post/:id" element={<RequireAuth><Shell><Post /></Shell></RequireAuth>} />
       <Route path="/criar" element={<RequireAuth><Shell><Create /></Shell></RequireAuth>} />
       <Route path="/comunidades" element={<RequireAuth><Shell><Communities /></Shell></RequireAuth>} />
+      <Route path="/criar-comunidade" element={<RequireAuth><Shell><CreateCommunity /></Shell></RequireAuth>} />
       <Route path="/c/:slug" element={<RequireAuth><Shell><Community /></Shell></RequireAuth>} />
       <Route path="/denuncias" element={<RequireAuth><Shell><AdminReports /></Shell></RequireAuth>} />
       <Route path="/alertas" element={<RequireAuth><Shell><Notifications /></Shell></RequireAuth>} />

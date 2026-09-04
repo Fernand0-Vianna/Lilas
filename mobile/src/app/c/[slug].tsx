@@ -37,11 +37,12 @@ export default function CommunityScreen() {
       const { data: c } = await supabase.from('communities').select('*').eq('slug', slug).single();
       if (!c) { setNotFound(true); setLoading(false); return; }
       const cid = c.id;
-      const [postsR, membersR, memR, modR] = await Promise.all([
+      const [postsR, membersR, memR, modR, creatorR] = await Promise.all([
         supabase.from('posts').select('*, author:profiles(*), community:communities(*)').eq('community_id', cid).order('created_at', { ascending: false }),
-        supabase.from('profile_communities').select('profile:profiles(*)').eq('community_id', cid).limit(20),
-        supabase.from('community_members').select('id').eq('community_id', cid).eq('user_id', user!.id).maybeSingle(),
-        supabase.from('community_moderators').select('id').eq('community_id', cid).eq('user_id', user!.id).maybeSingle(),
+        supabase.from('community_members').select('profiles!community_members_user_id_fkey(apelido, avatar_url, id)').eq('community_id', cid).limit(20),
+        supabase.from('community_members').select('user_id').eq('community_id', cid).eq('user_id', user!.id).maybeSingle(),
+        supabase.from('community_mods').select('user_id').eq('community_id', cid).eq('user_id', user!.id).maybeSingle(),
+        c.creator_id ? supabase.from('profiles').select('apelido').eq('id', c.creator_id).maybeSingle() : Promise.resolve({ data: null }),
       ]);
       const postIds = (postsR.data || []).map((p: any) => p.id);
       let votesMap: Record<string, number> = {};
@@ -56,10 +57,11 @@ export default function CommunityScreen() {
       }
       setCommunity(c);
       setPosts(postsR.data || []);
-      setMembers((membersR.data || []).map((m: any) => m.profile).filter(Boolean));
+      setMembers(membersR.data || []);
       setJoined(!!memR.data);
       setIsMod(!!modR.data);
       setIsOwner(c.creator_id === user?.id);
+      c.creator_username = creatorR.data?.apelido || 'criador';
       setUserVotes(votesMap);
       setUserSaves(savesMap);
       setLoading(false);
@@ -86,7 +88,7 @@ export default function CommunityScreen() {
   }
 
   async function handleRemoveAsMod(m: any) {
-    await supabase.from('community_moderators').delete().eq('community_id', community.id).eq('user_id', m.id);
+    await supabase.from('community_mods').delete().eq('community_id', community.id).eq('user_id', m.id);
     setMembers((ms) => ms.filter((x) => x.id !== m.id));
     setRemoveTarget(null);
   }
@@ -146,9 +148,7 @@ export default function CommunityScreen() {
             <View style={styles.aboutCard}>
               <Text style={styles.aboutTitle}>Regras</Text>
               {community.rules?.length ? (
-                community.rules.map((r: string, i: number) => (
-                  <Text key={i} style={styles.rule}>{i + 1}. {r}</Text>
-                ))
+                <Text style={styles.rule}>{community.rules}</Text>
               ) : (
                 <Text style={styles.aboutText}>Nenhuma regra definida.</Text>
               )}
@@ -157,7 +157,7 @@ export default function CommunityScreen() {
               <Text style={styles.aboutTitle}>Membros</Text>
               {members.length === 0 ? <Text style={styles.aboutText}>Nenhum membro visível.</Text> : (
                 <View style={{ gap: 10 }}>
-                  {members.map((m) => (
+                  {members.map((m: any) => (
                     <View key={m.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                       <Avatar apelido={m.apelido} avatarUrl={m.avatar_url} size={32} />
                       <Text style={styles.memberName}>{m.apelido}</Text>
@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
   aboutWrap: { padding: 12, gap: 12 },
   aboutCard: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius, padding: 16 },
   aboutTitle: { fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: 8 },
-  rule: { fontSize: 13, color: colors.text, marginBottom: 6, lineHeight: 18 },
+  rule: { fontSize: 13, color: colors.text, lineHeight: 18 },
   aboutText: { fontSize: 13, color: colors.muted },
   memberName: { fontSize: 13, fontWeight: '600', color: colors.text },
   modalOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 24 },

@@ -47,6 +47,9 @@ export default function CommunitiesScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.topbar}>
         <Text style={styles.heading}>Comunidades</Text>
+        <Pressable onPress={() => router.push('/criar-comunidade')}>
+          <Text style={styles.create}>Criar</Text>
+        </Pressable>
       </View>
       <ScrollView contentContainerStyle={styles.content}>
         <TextInput
@@ -85,8 +88,9 @@ export default function CommunitiesScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  topbar: { paddingHorizontal: 16, paddingVertical: 12, backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.border },
+  topbar: { paddingHorizontal: 16, paddingVertical: 12, backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   heading: { fontSize: 18, fontWeight: '700', color: colors.text },
+  create: { fontSize: 13, fontWeight: '700', color: colors.primary },
   content: { padding: 12 },
   search: {
     borderWidth: 1,

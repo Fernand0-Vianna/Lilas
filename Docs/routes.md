@@ -9,6 +9,7 @@
 | `/post/:id` | `Post` | `RequireAuth` | Página de post + comentários |
 | `/criar` | `Create` | `RequireAuth` | Criar nova publicação |
 | `/comunidades` | `Communities` | `RequireAuth` | Lista de comunidades |
+| `/criar-comunidade` | `CreateCommunity` | `RequireAuth` | Criar nova comunidade |
 | `/alertas` | `Notifications` | `RequireAuth` | Notificações do usuário |
 | `/u/:apelido` | `Profile` | `RequireAuth` | Perfil de usuário por apelido |
 | `/perfil` | `Profile` | `RequireAuth` | Perfil do usuário logado |

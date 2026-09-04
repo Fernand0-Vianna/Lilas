@@ -37,6 +37,9 @@ Comunidades temáticas (subreddits).
 | `category` | `text` | Categoria |
 | `members` | `integer` | Contagem de membros |
 | `image_url` | `text` | URL da imagem de capa (opcional) |
+| `creator_id` | `uuid` | Quem criou a comunidade (ref `profiles(id)`) |
+
+**Criação de comunidade:** qualquer usuária autenticada pode inserir em `communities` (policy `communities insert`). O trigger `on_community_created` (BEFORE INSERT) define `creator_id = auth.uid()` e insere automaticamente a criadora em `community_members` e `community_mods` — ou seja, a primeira moderadora é sempre a criadora. O slug é `unique`; duplicidade retorna erro `23505`.
 
 **Relacionamentos:**
 - `posts` → 1:N (`community_id`)

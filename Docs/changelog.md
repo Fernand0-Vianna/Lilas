@@ -2,6 +2,13 @@
 
 Histórico de mudanças baseado nas tasks semanais do projeto.
 
+## 2026-09-04
+
+### Feito
+
+- **Criar comunidades**: página `/criar-comunidade` (web `Client/src/pages/CreateCommunity.jsx` + mobile `criar-comunidade.tsx`), coluna `creator_id` em `communities`, trigger `on_community_created` (criadora vira membro + primeira mod automaticamente), slug único com validação. Acesso via botão "Criar comunidade" na lista `/comunidades`.
+- **Notificações**: tabela `notifications` aplicada no banco (8 linhas de estrutura), triggers `on_comment_notify`/`on_follow_notify`, RPCs `unread_count`/`mark_notifications_read` verificados.
+
 ## 2026-08-17
 
 ### Feito
