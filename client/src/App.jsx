@@ -10,6 +10,7 @@ import Community from './pages/Community.jsx'
 import Profile from './pages/Profile.jsx'
 import ResetPassword from './pages/ResetPassword.jsx'
 import AdminReports from './pages/AdminReports.jsx'
+import Notifications from './pages/Notifications.jsx'
 import BottomNav from './components/BottomNav.jsx'
 import Icon from './components/Icons.jsx'
 import { useState, useRef, useEffect } from 'react'
@@ -19,6 +20,7 @@ function Topbar() {
   const [q, setQ] = useState('')
   const [menu, setMenu] = useState(false)
   const [searchExpanded, setSearchExpanded] = useState(false)
+  const [unread, setUnread] = useState(0)
   const navigate = useNavigate()
   const dropdownRef = useRef(null)
 
@@ -32,6 +34,15 @@ function Topbar() {
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [menu])
+
+  useEffect(() => {
+    const fetchUnread = () => {
+      supabase.rpc('unread_count').then(({ data }) => setUnread(data ?? 0))
+    }
+    fetchUnread()
+    const i = setInterval(fetchUnread, 30000)
+    return () => clearInterval(i)
+  }, [])
 
   return (
     <header className="topbar">
@@ -53,9 +64,10 @@ function Topbar() {
               <NavLink to="/comunidades">Comunidades</NavLink>
               {profile?.is_admin && <NavLink to="/denuncias">Denúncias</NavLink>}
               <Link to="/criar" className="btn btn-primary">+ Criar</Link>
-              <button className="topbar-bell" title="Alertas">
+              <Link to="/alertas" className="topbar-bell" title="Alertas" style={{ position: 'relative' }}>
                 <Icon name="bell" size={18} />
-              </button>
+                {unread > 0 && <span className="bell-badge">{unread > 9 ? '9+' : unread}</span>}
+              </Link>
               <div className="avatar-menu">
                 <button className="avatar-link desktop-only" title={profile?.apelido} onClick={() => setMenu(m => !m)}>
                   <span className="avatar">{profile?.avatar_url ? <img src={profile.avatar_url} alt="" /> : (profile?.apelido || '?')[0].toUpperCase()}</span>
@@ -125,6 +137,7 @@ function AppRoutes() {
       <Route path="/comunidades" element={<RequireAuth><Shell><Communities /></Shell></RequireAuth>} />
       <Route path="/c/:slug" element={<RequireAuth><Shell><Community /></Shell></RequireAuth>} />
       <Route path="/denuncias" element={<RequireAuth><Shell><AdminReports /></Shell></RequireAuth>} />
+      <Route path="/alertas" element={<RequireAuth><Shell><Notifications /></Shell></RequireAuth>} />
       <Route path="/u/:apelido" element={<RequireAuth><Profile /></RequireAuth>} />
       <Route path="/perfil" element={<RequireAuth><Profile /></RequireAuth>} />
       <Route path="*" element={<Navigate to="/" replace />} />

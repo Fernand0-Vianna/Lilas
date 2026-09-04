@@ -122,9 +122,14 @@ export default function FeedScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.topbar}>
         <Text style={styles.logo}>Lilás</Text>
-        <Pressable style={styles.searchTrigger} onPress={() => setSearchOpen(true)} hitSlop={8}>
-          <Icon name="search" size={20} color={colors.muted} />
-        </Pressable>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <Pressable style={styles.searchTrigger} onPress={() => setSearchOpen(true)} hitSlop={8}>
+            <Icon name="search" size={20} color={colors.muted} />
+          </Pressable>
+          <Pressable style={styles.searchTrigger} onPress={() => router.push('/alertas')} hitSlop={8}>
+            <Icon name="bell" size={20} color={colors.muted} />
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>

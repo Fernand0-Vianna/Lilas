@@ -9,6 +9,7 @@
 | `/post/:id` | `Post` | `RequireAuth` | Página de post + comentários |
 | `/criar` | `Create` | `RequireAuth` | Criar nova publicação |
 | `/comunidades` | `Communities` | `RequireAuth` | Lista de comunidades |
+| `/alertas` | `Notifications` | `RequireAuth` | Notificações do usuário |
 | `/u/:apelido` | `Profile` | `RequireAuth` | Perfil de usuário por apelido |
 | `/perfil` | `Profile` | `RequireAuth` | Perfil do usuário logado |
 | `*` | — | — | Redireciona para `/` |
@@ -31,7 +32,7 @@ Barra superior fixa com logo, busca, navegação e avatar do usuário.
 - Logo + nome "Lilás" (link para `/`)
 - Input de busca (placeholder: "Buscar no Lilás...")
 - Links: Feed, Comunidades, + Criar
-- Sino de alertas (não funcional)
+- Sino de alertas (link para `/alertas`, badge de não lidas)
 - Avatar com inicial do apelido (link para perfil)
 
 ### `BottomNav`
@@ -40,12 +41,10 @@ Navegação inferior mobile com 5 itens.
 | Ícone | Rota | Label |
 |-------|------|-------|
 | home | `/` | Início |
-| search | — | Buscar (placeholder) |
+| users | `/comunidades` | Comunidades |
 | add | `/criar` | Criar |
-| bell | — | Alertas (placeholder) |
+| bell | `/alertas` | Alertas |
 | person | `/perfil` | Perfil |
-
-> **Nota:** Buscar e Alertas são placeholders visuais sem rota associada.
 
 ### `RequireAuth`
 Guard de autenticação para rotas protegidas.

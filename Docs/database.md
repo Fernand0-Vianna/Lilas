@@ -122,6 +122,21 @@ Votos em enquetes. Um voto por usuário por post (PK composta).
 | `user_id` | `uuid` | Referência a `auth.users(id)` |
 | `option_idx` | `integer` | Índice da opção escolhida |
 
+### `notifications`
+
+Notificações de atividade (comentários, seguidores, menções).
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `id` | `uuid` | Chave primária |
+| `user_id` | `uuid` | Referência a `auth.users(id)` — destinatária |
+| `type` | `text` | Tipo: `comment`, `follow`, `mention` |
+| `from_user_id` | `uuid` | Referência a `auth.users(id)` — remetente (opcional) |
+| `post_id` | `uuid` | Referência a `posts(id)` (opcional) |
+| `comment_id` | `uuid` | Referência a `comments(id)` (opcional) |
+| `read` | `boolean` | Se já foi lida |
+| `created_at` | `timestamptz` | Data de criação |
+
 ### `community_mods`
 
 Moderadoras de comunidade, nomeadas pelo admin da plataforma.
@@ -150,6 +165,8 @@ Estrutura igual a `community_mods`, com `banned_by`.
 | `vote_post(post, vote)` / `vote_comment(comment, vote)` | `int` | Voto atômico, retorna novo placar |
 | `sync_community_members()` | trigger | Mantém `communities.members` em sincia |
 | `delete_account()` | `void` | Exclui a conta e todos os dados |
+| `unread_count()` | `int` | Conta notificações não lidas do usuário atual |
+| `mark_notifications_read()` | `void` | Marca todas as notificações como lidas |
 
 ## Diagrama ER
 
@@ -159,10 +176,12 @@ erDiagram
   profiles ||--o{ comments : "comenta"
   profiles ||--o{ community_members : "pertence"
   profiles ||--o{ follows : "segue"
+  profiles ||--o{ notifications : "recebe"
   communities ||--o{ posts : "contém"
   communities ||--o{ community_members : "tem"
   posts ||--o{ comments : "tem"
   posts ||--o{ likes : "recebe"
+  posts ||--o{ notifications : "referenciado em"
 ```
 
 ## Triggers
@@ -175,9 +194,17 @@ Dispara automaticamente após `INSERT` em `auth.users`. Cria um registro em `pro
 
 Isso garante que todo usuário que se cadastra já tenha um perfil associado.
 
+### `on_comment_notify`
+
+Dispara após `INSERT` em `comments`. Cria uma notificação para o autor do post comentado (ignora se o autor é o próprio comentarista).
+
+### `on_follow_notify`
+
+Dispara após `INSERT` em `follows`. Cria uma notificação para o usuário seguido (ignora se é auto-seguimento).
+
 ## RLS (Row Level Security)
 
-Todas as 7 tabelas possuem RLS habilitado. O total de políticas é 21.
+Todas as 8 tabelas possuem RLS habilitado. O total de políticas é 23.
 
 ### Políticas por Tabela
 
@@ -198,6 +225,7 @@ Todas as 7 tabelas possuem RLS habilitado. O total de políticas é 21.
 | `community_mods` / `community_bans` | Leitura aberta / escrita admin (mods p/ bans) | Gestão de moderação |
 | `likes` | INSERT/DELETE próprio | Usuário pode curtir/descurtir |
 | `follows` | INSERT/DELETE próprio | Usuário pode seguir/deixar de seguir |
+| `notifications` | SELECT/UPDATE próprio | Usuário lê e marca como lidas suas notificações |
 
 > **Nota:** Detalhes exatos das políticas devem ser confirmados no Supabase Dashboard. A aplicação assume que RLS está corretamente configurado para os fluxos implementados.
 
