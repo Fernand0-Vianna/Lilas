@@ -16,6 +16,7 @@
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "br.com.lilas",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
