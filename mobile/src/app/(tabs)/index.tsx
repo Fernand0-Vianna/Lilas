@@ -25,7 +25,7 @@ type FeedData = {
   removePost: (id: string) => void;
 };
 
-function useFeed(q: string): FeedData {
+function useFeed(q: string, scope: string): FeedData {
   const { user } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
   const [communities, setCommunities] = useState<Community[]>([]);
@@ -34,18 +34,43 @@ function useFeed(q: string): FeedData {
   const [userSaves, setUserSaves] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    let query = supabase
-      .from('posts')
-      .select('*, profiles!posts_author_id_fkey(apelido, avatar_url), communities(slug, name), likes(vote), comments(count), poll_votes(option_idx)')
-      .order('created_at', { ascending: false })
-      .limit(50);
-    if (q) query = (query as any).ilike('title', `%${q}%`);
+    const userId = user?.id;
+
+    const buildQuery = async () => {
+      let query = supabase
+        .from('posts')
+        .select('*, profiles!posts_author_id_fkey(apelido, avatar_url), communities(slug, name), likes(vote), comments(count), poll_votes(option_idx)')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (scope === 'home' && userId) {
+        const [commRes, followRes] = await Promise.all([
+          supabase.from('community_members').select('community_id').eq('user_id', userId),
+          supabase.from('follows').select('following_id').eq('follower_id', userId),
+        ]);
+        const communityIds = (commRes.data || []).map((r: any) => r.community_id);
+        const followingIds = (followRes.data || []).map((r: any) => r.following_id);
+        if (!communityIds.length && !followingIds.length) {
+          return { data: [] };
+        }
+        const filters = [];
+        if (communityIds.length) filters.push(`community_id.in.(${communityIds.join(',')})`);
+        if (followingIds.length) filters.push(`author_id.in.(${followingIds.join(',')})`);
+        query = (query as any).or(filters.join(','));
+      }
+
+      if (q) query = (query as any).or(`title.ilike.%${q}%,body.ilike.%${q}%`);
+      return query;
+    };
     const userSearch = q.replace(/^[uU@\/]+/, '').trim();
     const usersQuery = userSearch
       ? supabase.from('profiles').select('id, apelido, avatar_url, bio').ilike('apelido', `%${userSearch}%`).limit(10).then((r) => r, () => ({ data: [] }))
       : Promise.resolve({ data: [] });
+    const communitiesQuery = q
+      ? supabase.from('communities').select('*').ilike('name', `%${q}%`).limit(10).then((r) => r, () => ({ data: [] }))
+      : supabase.from('communities').select('*').order('members', { ascending: false }).limit(10);
 
-    Promise.all([query, supabase.from('communities').select('*').order('members', { ascending: false }).limit(10), usersQuery]).then(
+    Promise.all([buildQuery(), communitiesQuery, usersQuery]).then(
       async ([p, c, u]) => {
         const allPosts = (p.data || []) as Post[];
         setPosts(allPosts);
@@ -76,7 +101,7 @@ function useFeed(q: string): FeedData {
       setUserVotes({});
       setUserSaves({});
     });
-  }, [q, user?.id]);
+  }, [q, scope, user?.id]);
 
   return { posts, communities, users, userVotes, userSaves, removePost: (id) => setPosts((p) => p.filter((x) => x.id !== id)) };
 }
@@ -101,10 +126,11 @@ export default function FeedScreen() {
   const router = useRouter();
   const { profile } = useAuth();
   const [tab, setTab] = useState('hot');
+  const [feedScope, setFeedScope] = useState('home');
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
-  const { posts, communities, users, userVotes, userSaves, removePost } = useFeed(query);
+  const { posts, communities, users, userVotes, userSaves, removePost } = useFeed(query, query ? 'all' : feedScope);
 
   const sorted = [...posts];
   if (tab === 'top') sorted.sort((a, b) => postScore(b) - postScore(a));
@@ -143,6 +169,19 @@ export default function FeedScreen() {
               <Pressable key={u.id} style={styles.peopleRow} onPress={() => router.push(`/u/${u.apelido}`)}>
                 <Avatar apelido={u.apelido} avatarUrl={u.avatar_url} size={28} />
                 <Text style={styles.peopleName}>@{u.apelido}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
+        {!query ? (
+          <View style={styles.tabs}>
+            {[
+              { key: 'home', label: 'Home' },
+              { key: 'all', label: 'Tudo' },
+            ].map((t) => (
+              <Pressable key={t.key} style={[styles.tab, feedScope === t.key && styles.tabActive]} onPress={() => { setFeedScope(t.key); setTab('hot'); }}>
+                <Text style={[styles.tabText, feedScope === t.key && styles.tabTextActive]}>{t.label}</Text>
               </Pressable>
             ))}
           </View>

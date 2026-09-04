@@ -12,7 +12,7 @@ function hotScore(post) {
   return order + (new Date(post.created_at).getTime() / 1000) / 45000
 }
 
-function useFeed(q) {
+function useFeed(q, scope) {
   const { session } = useAuth()
   const [posts, setPosts] = useState([])
   const [communities, setCommunities] = useState([])
@@ -23,26 +23,53 @@ function useFeed(q) {
 
   useEffect(() => {
     setLoading(true)
-    let query = supabase
-      .from('posts')
-      .select(`
-        id, title, body, tag, image_url, link_url, poll_options, created_at, author_id,
-        profiles!posts_author_id_fkey(id, apelido, avatar_url),
-        communities!posts_community_id_fkey(slug, name),
-        likes(vote),
-        comments(count),
-        poll_votes(option_idx)
-      `)
-      .order('created_at', { ascending: false })
-      .limit(50)
-    if (q) query = query.ilike('title', `%${q}%`)
+    const userId = session?.user?.id
+
+    const buildQuery = async () => {
+      let query = supabase
+        .from('posts')
+        .select(`
+          id, title, body, tag, image_url, link_url, poll_options, created_at, author_id,
+          profiles!posts_author_id_fkey(id, apelido, avatar_url),
+          communities!posts_community_id_fkey(slug, name),
+          likes(vote),
+          comments(count),
+          poll_votes(option_idx)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(50)
+
+      if (scope === 'home' && userId) {
+        const [commRes, followRes] = await Promise.all([
+          supabase.from('community_members').select('community_id').eq('user_id', userId),
+          supabase.from('follows').select('following_id').eq('follower_id', userId)
+        ])
+        const communityIds = (commRes.data || []).map(r => r.community_id)
+        const followingIds = (followRes.data || []).map(r => r.following_id)
+        if (!communityIds.length && !followingIds.length) {
+          return { data: [] }
+        }
+        const filters = []
+        if (communityIds.length) filters.push(`community_id.in.(${communityIds.join(',')})`)
+        if (followingIds.length) filters.push(`author_id.in.(${followingIds.join(',')})`)
+        query = query.or(filters.join(','))
+      }
+
+      if (q) query = query.or(`title.ilike.%${q}%,body.ilike.%${q}%`)
+      return query
+    }
+
     const userSearch = q ? q.replace(/^[uU@\/]+/, '').trim() : ''
     const usersQuery = userSearch
       ? supabase.from('profiles').select('id, apelido, avatar_url, bio').ilike('apelido', `%${userSearch}%`).limit(10).then(r => r, () => ({ data: [] }))
       : Promise.resolve({ data: [] })
+    const communitiesQuery = q
+      ? supabase.from('communities').select('*').ilike('name', `%${q}%`).limit(10).then(r => r, () => ({ data: [] }))
+      : supabase.from('communities').select('*').order('members', { ascending: false }).limit(10)
+
     Promise.all([
-      query,
-      supabase.from('communities').select('*').order('members', { ascending: false }).limit(10),
+      buildQuery(),
+      communitiesQuery,
       usersQuery
     ]).then(async ([p, c, u]) => {
       const allPosts = p.data || []
@@ -51,8 +78,8 @@ function useFeed(q) {
       setUsers(u.data || [])
 
       const postIds = allPosts.map(x => x.id)
-      if (postIds.length && session?.user?.id) {
-        const { votesMap, savesMap } = await fetchVotesAndSaves(postIds, session.user.id)
+      if (postIds.length && userId) {
+        const { votesMap, savesMap } = await fetchVotesAndSaves(postIds, userId)
         setUserVotes(votesMap)
         setUserSaves(savesMap)
       } else {
@@ -69,7 +96,7 @@ function useFeed(q) {
       setUserSaves({})
       setLoading(false)
     })
-  }, [q, session?.user?.id])
+  }, [q, scope, session?.user?.id])
 
   // Real-time: sincroniza votos (likes) entre usuários
   useEffect(() => {
@@ -112,9 +139,10 @@ function useFeed(q) {
 export default function Feed() {
   const [params] = useSearchParams()
   const q = params.get('q') || ''
-  const { posts, communities, users, userVotes, userSaves, loading, removePost } = useFeed(q)
   const { profile } = useAuth()
   const [tab, setTab] = useState('hot')
+  const [feedScope, setFeedScope] = useState('home')
+  const { posts, communities, users, userVotes, userSaves, loading, removePost } = useFeed(q, q ? 'all' : feedScope)
 
   const sorted = useMemo(() => {
     const s = [...posts]
@@ -173,6 +201,12 @@ export default function Feed() {
                     <span>@{u.apelido}</span>
                   </Link>
                 ))}
+              </div>
+            )}
+            {!q && (
+              <div className="feed-tabs" style={{ marginBottom: 0 }}>
+                <button className={feedScope === 'home' ? 'active' : ''} onClick={() => { setFeedScope('home'); setTab('hot') }}>Home</button>
+                <button className={feedScope === 'all' ? 'active' : ''} onClick={() => { setFeedScope('all'); setTab('hot') }}>Tudo</button>
               </div>
             )}
             <div className="feed-tabs">
