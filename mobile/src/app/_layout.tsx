@@ -1,18 +1,34 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import { Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { AuthProvider, useAuth } from '@/lib/auth';
+import { colors } from '@/lib/theme';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
-
-SplashScreen.preventAutoHideAsync();
-
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+function Root() {
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
+    <Stack
+      screenOptions={{
+        headerStyle: { backgroundColor: colors.card },
+        headerTintColor: colors.text,
+        headerTitleStyle: { fontWeight: '700', color: colors.text },
+        contentStyle: { backgroundColor: colors.bg },
+        headerShadowVisible: false,
+      }}
+    >
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="post/[id]" options={{ title: 'Publicação' }} />
+      <Stack.Screen name="c/[slug]" options={{ title: 'Comunidade' }} />
+      <Stack.Screen name="u/[apelido]" options={{ title: 'Perfil' }} />
+      <Stack.Screen name="login" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+      <Stack.Screen name="reset-password" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+    </Stack>
+  );
+}
+
+export default function Layout() {
+  return (
+    <AuthProvider>
+      <StatusBar style="dark" />
+      <Root />
+    </AuthProvider>
   );
 }
