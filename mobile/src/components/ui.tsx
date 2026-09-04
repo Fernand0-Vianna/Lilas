@@ -1,4 +1,4 @@
-import { Pressable, Text, TextInput, View, StyleSheet, StyleProp, ViewStyle, KeyboardTypeOptions } from 'react-native';
+import { Pressable, Text, TextInput, View, StyleSheet, StyleProp, ViewStyle, TextStyle, KeyboardTypeOptions } from 'react-native';
 import { ReactNode } from 'react';
 import { colors, radius } from '@/lib/theme';
 
@@ -89,7 +89,7 @@ export function Input({
   keyboardType?: KeyboardTypeOptions;
   multiline?: boolean;
   numberOfLines?: number;
-  style?: StyleProp<ViewStyle>;
+  style?: StyleProp<TextStyle>;
   onSubmitEditing?: () => void;
   returnKeyType?: 'done' | 'go' | 'next' | 'search' | 'send';
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';

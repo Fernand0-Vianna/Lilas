@@ -9,7 +9,10 @@ import { Post, postScore, postCommentCount } from '@/lib/types';
 import Icon from './Icon';
 import Avatar from './Avatar';
 import ConfirmModal from './ConfirmModal';
+import { Button } from './ui';
 import { colors, radius, shadow } from '@/lib/theme';
+
+const blurredStyle = { filter: 'blur(10px)', opacity: 0.2 } as const;
 
 function Poll({ post }: { post: Post }) {
   const { user } = useAuth();
@@ -84,10 +87,14 @@ export default function PostCard({ post, onDeleted, canModerate, userVote, userS
   const [score, setScore] = useState(0);
   const [comments, setComments] = useState(0);
   const [saved, setSaved] = useState(userSaved ?? false);
+  const [revealed, setRevealed] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [reason, setReason] = useState('');
   const [reported, setReported] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [edit, setEdit] = useState({ title: '', body: '' });
+  const [edited, setEdited] = useState<any>(null);
 
   useEffect(() => {
     setScore(postScore(post));
@@ -150,6 +157,20 @@ export default function PostCard({ post, onDeleted, canModerate, userVote, userS
   const host = post.link_url ? domHost(post.link_url) : '';
   const canDelete = profile?.is_admin || post.author_id === user?.id || !!canModerate;
   const isModRemoval = !!canModerate && post.author_id !== user?.id;
+  const canEditPost = !!user && post.author_id === user.id && Date.now() - new Date(post.created_at).getTime() < 24 * 3600 * 1000;
+  const view = { ...post, ...edited };
+
+  async function saveEdit() {
+    if (!edit.title.trim()) return;
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from('posts')
+      .update({ title: edit.title.trim(), body: edit.body.trim() || null, edited_at: now })
+      .eq('id', post.id);
+    if (error) return;
+    setEdited({ title: edit.title.trim(), body: edit.body.trim() || null, edited_at: now });
+    setEditing(false);
+  }
 
   return (
     <View style={styles.card}>
@@ -177,37 +198,66 @@ export default function PostCard({ post, onDeleted, canModerate, userVote, userS
               <Text style={styles.commBadge}>{post.communities?.name}</Text>
             </Pressable>
             <Text style={styles.time}> · {timeAgo(post.created_at)}</Text>
-            {canDelete && (
+            {post.edited_at && <Text style={styles.editedMark}> · editado</Text>}
+            {canEditPost && !editing && (
+              <TouchableOpacity style={styles.more} onPress={() => { setEdit({ title: post.title, body: post.body || '' }); setEditing(true); }} hitSlop={6}>
+                <Icon name="pen" size={16} color={colors.muted2} />
+              </TouchableOpacity>
+            )}
+            {canDelete && !editing && (
               <TouchableOpacity style={styles.more} onPress={() => setConfirmDelete(true)} hitSlop={6}>
                 <Icon name="more" size={16} color={colors.muted2} />
               </TouchableOpacity>
             )}
           </View>
 
-          {host ? (
-            <>
-              <Text style={styles.title}>{post.title}</Text>
-              <TouchableOpacity onPress={() => Linking.openURL(post.link_url!)} style={styles.linkCard}>
-                <View style={styles.linkText}>
-                  <Text style={styles.linkHost}>{host}</Text>
-                  <Text style={styles.linkUrl} numberOfLines={1}>{post.link_url}</Text>
+          <View style={styles.bodySlot}>
+            {editing ? (
+              <View style={styles.editPost}>
+                <TextInput style={styles.editInput} value={edit.title} onChangeText={(t) => setEdit({ ...edit, title: t })} placeholder="Título" placeholderTextColor={colors.muted2} />
+                <TextInput style={[styles.editInput, styles.editBodyInput]} value={edit.body} onChangeText={(t) => setEdit({ ...edit, body: t })} placeholder="Texto (opcional)" placeholderTextColor={colors.muted2} multiline />
+                <View style={{ flexDirection: 'row', gap: 6 }}>
+                  <Button onPress={saveEdit}>Salvar</Button>
+                  <Button variant="outline" onPress={() => setEditing(false)}>Cancelar</Button>
                 </View>
-              </TouchableOpacity>
-              {post.body ? <Text style={styles.body}>{post.body}</Text> : null}
+              </View>
+            ) : (
+            <>
+            {post.is_sensitive && !revealed && (
+              <Pressable style={styles.revealOverlay} onPress={() => setRevealed(true)}>
+                <Icon name="eye" size={18} color={colors.muted} />
+                <Text style={styles.revealText}>Conteúdo sensível — tocar para revelar</Text>
+              </Pressable>
+            )}
+            <View style={post.is_sensitive && !revealed ? styles.blurred : undefined} pointerEvents={post.is_sensitive && !revealed ? 'none' : 'auto'}>
+            {host ? (
+              <>
+                <Text style={styles.title}>{view.title}</Text>
+                <TouchableOpacity onPress={() => Linking.openURL(post.link_url!)} style={styles.linkCard}>
+                  <View style={styles.linkText}>
+                    <Text style={styles.linkHost}>{host}</Text>
+                    <Text style={styles.linkUrl} numberOfLines={1}>{view.link_url}</Text>
+                  </View>
+                </TouchableOpacity>
+                {view.body ? <Text style={styles.body}>{view.body}</Text> : null}
+              </>
+            ) : (
+              <Pressable onPress={() => router.push(`/post/${post.id}`)}>
+                <Text style={styles.title}>
+                  {post.tag ? <Text style={styles.tagChip} onPress={() => router.push(`/?q=${encodeURIComponent(post.tag as string)}`)}>{post.tag} </Text> : null}
+                  {view.title}
+                </Text>
+                {view.body ? <Text style={styles.body} numberOfLines={3}>{view.body}</Text> : null}
+                {post.image_url && (
+                  <Image source={{ uri: post.image_url }} style={styles.postImg} contentFit="cover" transition={150} />
+                )}
+                {post.poll_options && <Poll post={post} />}
+              </Pressable>
+            )}
+            </View>
             </>
-          ) : (
-            <Pressable onPress={() => router.push(`/post/${post.id}`)}>
-              <Text style={styles.title}>
-                {post.tag ? <Text style={styles.tagChip} onPress={() => router.push(`/?q=${encodeURIComponent(post.tag as string)}`)}>{post.tag} </Text> : null}
-                {post.title}
-              </Text>
-              {post.body ? <Text style={styles.body} numberOfLines={3}>{post.body}</Text> : null}
-              {post.image_url && (
-                <Image source={{ uri: post.image_url }} style={styles.postImg} contentFit="cover" transition={150} />
-              )}
-              {post.poll_options && <Poll post={post} />}
-            </Pressable>
-          )}
+            )}
+          </View>
 
           <View style={styles.actions}>
             <TouchableOpacity style={styles.action} onPress={() => router.push(`/post/${post.id}`)}>
@@ -289,6 +339,21 @@ const styles = StyleSheet.create({
   tagChip: { backgroundColor: colors.primarySoft, color: colors.primaryDark, borderRadius: 999, paddingHorizontal: 8, fontSize: 10, fontWeight: '700' },
   body: { color: colors.muted, fontSize: 12, lineHeight: 18, marginBottom: 8 },
   postImg: { width: '100%', borderRadius: 8, height: 220, marginBottom: 8, backgroundColor: colors.bg },
+  bodySlot: { position: 'relative' },
+  editedMark: { fontSize: 11, color: colors.muted },
+  editPost: { gap: 8 },
+  editInput: {
+    borderWidth: 1.5, borderColor: colors.border, borderRadius: 10, backgroundColor: colors.bg,
+    paddingHorizontal: 12, paddingVertical: 9, fontSize: 13, color: colors.text,
+  },
+  editBodyInput: { minHeight: 70, textAlignVertical: 'top' },
+  blurred: blurredStyle as any,
+  revealOverlay: {
+    position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 2,
+    borderWidth: 1, borderStyle: 'dashed', borderColor: colors.muted, borderRadius: 8,
+    alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: colors.bg,
+  },
+  revealText: { color: colors.muted, fontSize: 11, fontWeight: '600' },
   linkCard: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 8, marginBottom: 8 },
   linkText: { flex: 1 },
   linkHost: { fontSize: 10, fontWeight: '700', color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.4 },

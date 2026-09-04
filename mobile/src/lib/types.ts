@@ -8,6 +8,8 @@ export type Post = {
   link_url: string | null;
   created_at: string;
   poll_options: string[] | null;
+  is_sensitive?: boolean;
+  edited_at?: string | null;
   poll_votes?: { option_idx: number }[];
   likes?: { vote: number }[];
   comments?: { count: number }[];

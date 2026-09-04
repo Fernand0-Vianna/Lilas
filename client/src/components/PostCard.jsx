@@ -66,6 +66,7 @@ export default memo(function PostCard({ post, onRemove, canModerate, userVote, u
   const { session, profile } = useAuth()
   const navigate = useNavigate()
   const [vote, setVote] = useState(userVote ?? 0)
+  const [revealed, setRevealed] = useState(false)
   const [score, setScore] = useState(0)
   const [comments, setComments] = useState(0)
   const [saved, setSaved] = useState(userSaved ?? false)
@@ -74,6 +75,9 @@ export default memo(function PostCard({ post, onRemove, canModerate, userVote, u
   const [reported, setReported] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [author, setAuthor] = useState(null)
+  const [editing, setEditing] = useState(false)
+  const [edit, setEdit] = useState({ title: '', body: '' })
+  const [edited, setEdited] = useState(null)
 
   useEffect(() => {
     setAuthor(post.profiles || null)
@@ -138,9 +142,23 @@ export default memo(function PostCard({ post, onRemove, canModerate, userVote, u
     else navigate('/')
   }
 
+  async function saveEdit() {
+    if (!edit.title.trim()) return
+    const now = new Date().toISOString()
+    const { error } = await supabase
+      .from('posts')
+      .update({ title: edit.title.trim(), body: edit.body.trim() || null, edited_at: now })
+      .eq('id', post.id)
+    if (error) return
+    setEdited({ title: edit.title.trim(), body: edit.body.trim() || null, edited_at: now })
+    setEditing(false)
+  }
+
   let host = ''
   try { host = post.link_url ? new URL(post.link_url).hostname.replace(/^www\./, '') : '' } catch { /* url inválida */ }
   const canDelete = profile?.is_admin || post.author_id === session.user.id || !!canModerate
+  const canEditPost = post.author_id === session.user.id && Date.now() - new Date(post.created_at).getTime() < 24 * 3600 * 1000
+  const view = { ...post, ...edited }
   return (
     <article className="card post-card">
       <div className="vote-col">
@@ -162,38 +180,67 @@ export default memo(function PostCard({ post, onRemove, canModerate, userVote, u
             <div className="comm">
               <Link to={`/c/${post.communities?.slug}`} className="comm-badge">{post.communities?.name}</Link>
               <span className="time"> · {timeAgo(post.created_at)}</span>
+              {view.edited_at && <span className="edited-mark"> · editado</span>}
             </div>
           </div>
-          {canDelete && (
+          {canEditPost && !editing && (
+            <button className="post-more" title="Editar publicação" onClick={() => { setEdit({ title: post.title, body: post.body || '' }); setEditing(true) }}>
+              <Icon name="pen" size={16} />
+            </button>
+          )}
+          {canDelete && !editing && (
             <button className="post-more" title={canModerate && post.author_id !== session.user.id ? 'Remover (moderação)' : 'Excluir publicação'} onClick={() => setConfirmDelete(true)}>
               <Icon name="more" size={16} />
             </button>
           )}
         </div>
-        {host ? (
+        <div className="post-body-slot">
+          {editing ? (
+            <div className="edit-post">
+              <input className="field" value={edit.title} onChange={e => setEdit({ ...edit, title: e.target.value })} placeholder="Título" />
+              <textarea className="field" rows={3} value={edit.body} onChange={e => setEdit({ ...edit, body: e.target.value })} placeholder="Texto (opcional)" style={{ padding: '11px 14px', border: '1.5px solid var(--border)', borderRadius: 10, outline: 'none', width: '100%' }} />
+              <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                <button className="btn btn-primary btn-sm" onClick={saveEdit}>Salvar</button>
+                <button className="btn btn-outline btn-sm" onClick={() => setEditing(false)}>Cancelar</button>
+              </div>
+            </div>
+          ) : (
           <>
-            <h3 className="post-title">{post.title}</h3>
-            <a href={post.link_url} target="_blank" rel="noreferrer noopener" className="link-card">
-              <img src={`https://www.google.com/s2/favicons?domain=${host}&sz=32`} alt="" onError={e => { e.target.style.display = 'none' }} />
-              <span style={{ flex: 1, minWidth: 0 }}>
-                <span className="link-host">{host}</span>
-                <span className="link-url">{post.link_url}</span>
-              </span>
-              <Icon name="chevron-left" size={12} style={{ transform: 'rotate(180deg)', flexShrink: 0 }} />
-            </a>
-            {post.body && <p className="post-body">{post.body}</p>}
+          {post.is_sensitive && !revealed && (
+            <button type="button" className="reveal-overlay" onClick={() => setRevealed(true)}>
+              <Icon name="eye" size={18} />
+              <span>Conteúdo sensível — tocar para revelar</span>
+            </button>
+          )}
+          <div className={`post-body-wrap ${post.is_sensitive && !revealed ? 'blurred' : ''}`}>
+          {host ? (
+            <>
+              <h3 className="post-title">{view.title}</h3>
+              <a href={view.link_url} target="_blank" rel="noreferrer noopener" className="link-card">
+                <img src={`https://www.google.com/s2/favicons?domain=${host}&sz=32`} alt="" onError={e => { e.target.style.display = 'none' }} />
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span className="link-host">{host}</span>
+                  <span className="link-url">{view.link_url}</span>
+                </span>
+                <Icon name="chevron-left" size={12} style={{ transform: 'rotate(180deg)', flexShrink: 0 }} />
+              </a>
+              {view.body && <p className="post-body">{view.body}</p>}
+            </>
+          ) : (
+            <Link to={`/post/${post.id}`} className="post-link">
+              <h3 className="post-title">
+                {post.tag && <span className="tag-chip" onClick={e => { e.preventDefault(); e.stopPropagation(); navigate(`/?q=${encodeURIComponent(post.tag)}`) }}>{post.tag}</span>}
+                {view.title}
+              </h3>
+              {view.body && <p className="post-body">{view.body}</p>}
+              {post.image_url && <img src={post.image_url} alt="" className="post-img" loading="lazy" />}
+              {post.poll_options && <Poll post={post} />}
+            </Link>
+          )}
+          </div>
           </>
-        ) : (
-          <Link to={`/post/${post.id}`} className="post-link">
-            <h3 className="post-title">
-              {post.tag && <span className="tag-chip" onClick={e => { e.preventDefault(); e.stopPropagation(); navigate(`/?q=${encodeURIComponent(post.tag)}`) }}>{post.tag}</span>}
-              {post.title}
-            </h3>
-            {post.body && <p className="post-body">{post.body}</p>}
-            {post.image_url && <img src={post.image_url} alt="" className="post-img" loading="lazy" />}
-            {post.poll_options && <Poll post={post} />}
-          </Link>
-        )}
+          )}
+        </div>
         <div className="post-actions">
           <Link to={`/post/${post.id}`} className="action">
             <Icon name="comment" size={14} /> <span>{compact(comments)}</span>

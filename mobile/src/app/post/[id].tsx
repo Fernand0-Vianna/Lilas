@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -58,6 +58,7 @@ export default function PostDetailScreen() {
   const [editBody, setEditBody] = useState('');
   const [reportComment, setReportComment] = useState<any>(null);
   const [reportReason, setReportReason] = useState('');
+  const [sortMode, setSortMode] = useState('melhor');
 
   useEffect(() => {
     Promise.all([
@@ -130,9 +131,10 @@ export default function PostDetailScreen() {
 
   async function saveEdit() {
     if (!editBody.trim()) return;
-    const { error } = await supabase.from('comments').update({ body: editBody.trim() }).eq('id', editingId);
+    const now = new Date().toISOString();
+    const { error } = await supabase.from('comments').update({ body: editBody.trim(), edited_at: now }).eq('id', editingId);
     if (error) return;
-    setComments((cs) => cs.map((x) => (x.id === editingId ? { ...x, body: editBody.trim() } : x)));
+    setComments((cs) => cs.map((x) => (x.id === editingId ? { ...x, body: editBody.trim(), edited_at: now } : x)));
     setEditingId(null);
     setEditBody('');
   }
@@ -145,13 +147,17 @@ export default function PostDetailScreen() {
   }
 
   const rows = useMemo(() => {
+    const score = (c: any) => (c.comment_votes || []).reduce((a: number, v: any) => a + (v.vote || 0), 0);
+    const list = [...comments];
+    if (sortMode === 'novo') list.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
+    else list.sort((a, b) => score(b) - score(a) || +new Date(a.created_at) - +new Date(b.created_at));
     const byParent: Record<string, any[]> = {};
-    comments.forEach((c) => { (byParent[c.parent_id || 'root'] = byParent[c.parent_id || 'root'] || []).push(c); });
+    list.forEach((c) => { (byParent[c.parent_id || 'root'] = byParent[c.parent_id || 'root'] || []).push(c); });
     const out: { c: any; depth: number }[] = [];
     const walk = (pid: string, depth: number) => (byParent[pid] || []).forEach((c) => { out.push({ c, depth }); walk(c.id, depth + 1); });
     walk('root', 0);
     return out;
-  }, [comments]);
+  }, [comments, sortMode]);
 
   if (loading) {
     return <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={colors.primary} /></View>;
@@ -187,6 +193,13 @@ export default function PostDetailScreen() {
 
           <View style={styles.commentsCard}>
             <Text style={styles.commentsTitle}>Comentários</Text>
+            <View style={styles.sortTabs}>
+              {(['melhor', 'topo', 'novo'] as const).map((k) => (
+                <Pressable key={k} style={[styles.sortTab, sortMode === k && styles.sortTabActive]} onPress={() => setSortMode(k)}>
+                  <Text style={[styles.sortTabText, sortMode === k && styles.sortTabTextActive]}>{k === 'melhor' ? 'Melhor' : k === 'topo' ? 'Topo' : 'Novo'}</Text>
+                </Pressable>
+              ))}
+            </View>
             {session && replyForm(addComment, body, setBody)}
 
             {rows.length === 0 ? (
@@ -211,7 +224,7 @@ export default function PostDetailScreen() {
                         </View>
                       </View>
                     ) : (
-                      <Text style={styles.cBody}>{c.body}</Text>
+                      <Text style={styles.cBody}>{c.body}{c.edited_at ? <Text style={styles.editedMark}> · editado</Text> : null}</Text>
                     )}
                     {editingId !== c.id && (
                       <View style={{ flexDirection: 'row', gap: 14, marginTop: 4, flexWrap: 'wrap' }}>
@@ -286,6 +299,11 @@ export default function PostDetailScreen() {
 const styles = StyleSheet.create({
   commentsCard: { backgroundColor: colors.card, borderRadius: radius, borderWidth: 1, borderColor: colors.border, padding: 16, marginTop: 12 },
   commentsTitle: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 8 },
+  sortTabs: { flexDirection: 'row', gap: 6, marginBottom: 10 },
+  sortTab: { paddingVertical: 5, paddingHorizontal: 12, borderRadius: 999, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
+  sortTabActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
+  sortTabText: { fontSize: 12, fontWeight: '600', color: colors.muted },
+  sortTabTextActive: { color: colors.primaryDark },
   noComments: { color: colors.muted, fontSize: 14, paddingVertical: 8 },
   compose: { marginTop: 8, marginBottom: 8 },
   composeInput: { minHeight: 52, backgroundColor: colors.bg, borderWidth: 1.5, borderColor: colors.border, borderRadius: 10, padding: 11, fontSize: 14, color: colors.text, textAlignVertical: 'top' },
@@ -293,6 +311,7 @@ const styles = StyleSheet.create({
   cMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   cMeta: { fontSize: 12, fontWeight: '700', color: colors.text },
   cBody: { fontSize: 14, color: colors.text, lineHeight: 20, marginTop: 2 },
+  editedMark: { fontSize: 11, color: colors.muted },
   cAction: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   cActionText: { fontSize: 11, color: colors.muted },
   voteCol: { alignItems: 'center', gap: 4, paddingTop: 2 },

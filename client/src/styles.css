@@ -220,11 +220,23 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .post-link { display: block; }
 .post-title { font-size: 15px; font-weight: 500; margin-bottom: 4px; line-height: 1.35; }
 .post-title:hover { color: var(--primary); }
+.edited-mark { color: var(--muted); font-size: 11px; }
+.edit-post { display: flex; flex-direction: column; gap: 8px; padding: 8px 0; }
 .post-body {
   color: var(--muted); font-size: 12px; line-height: 1.5; margin-bottom: 8px;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
 .post-img { width: 100%; border-radius: 8px; max-height: 360px; object-fit: cover; margin-bottom: 8px; }
+.post-body-slot { position: relative; }
+.post-body-wrap { min-height: 0; }
+.post-body-wrap.blurred { filter: blur(10px); pointer-events: none; user-select: none; }
+.reveal-overlay {
+  position: absolute; inset: 0; z-index: 2; border: 1px dashed var(--muted);
+  border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px; color: var(--muted); background: var(--bg); cursor: pointer; font-size: 12px; font-weight: 600;
+  filter: none; pointer-events: auto;
+}
+.reveal-overlay:hover { color: var(--primary); border-color: var(--primary); }
 .post-actions {
   display: flex; gap: 2px; border-top: 1px solid var(--border);
   padding-top: 6px; margin-top: 6px; padding-bottom: 8px;

@@ -6,9 +6,16 @@ Histórico de mudanças baseado nas tasks semanais do projeto.
 
 ### Feito
 
+- **Feed Home/Tudo**: abas "Em alta"/Home (posts das comunidades que sigo + quem sigo) e "Tudo" (global), busca com escopo global. Web `client/src/pages/Feed.jsx` + mobile `(tabs)/index.tsx`.
+- **Busca ampliada**: posts por título + corpo, comunidades por nome (web e mobile).
+- **Infinite scroll**: paginação por `.range()` com IntersectionObserver (web) e `onScroll` (mobile), loader no fim do feed.
+- **Conteúdo sensível (flair)**: coluna `posts.is_sensitive`, checkbox no criar (web+mobile), blur "tocar para revelar" nos cards.
+- **Ordenação de comentários**: abas Melhor/Topo/Novo em `Post.jsx` e mobile `post/[id].tsx`.
+- **Editar post/comentário**: botão editar no post (janela de 24h) e no comentário; colunas `edited_at` em `posts` e `comments`; marcador "(editado)".
 - **Criar comunidades**: página `/criar-comunidade` (web `Client/src/pages/CreateCommunity.jsx` + mobile `criar-comunidade.tsx`), coluna `creator_id` em `communities`, trigger `on_community_created` (criadora vira membro + primeira mod automaticamente), slug único com validação. Acesso via botão "Criar comunidade" na lista `/comunidades`.
 - **Notificações**: tabela `notifications` aplicada no banco (8 linhas de estrutura), triggers `on_comment_notify`/`on_follow_notify`, RPCs `unread_count`/`mark_notifications_read` verificados.
 - **Karma**: RPC `karma_of` (soma votos posts+comentários do autor), verificada no banco, já exibida no perfil web e mobile.
+- **Deploy migrado para Vercel**: `lilas-341.netlify.app` fora do ar; produção em `https://lilas-two.vercel.app` (deploy automático via push para `main`).
 
 ## 2026-08-17
 

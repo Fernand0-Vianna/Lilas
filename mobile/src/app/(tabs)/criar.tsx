@@ -26,6 +26,7 @@ export default function CreateScreen() {
   const [body, setBody] = useState('');
   const [image, setImage] = useState<{ uri: string; name?: string; type?: string } | null>(null);
   const [tag, setTag] = useState('');
+  const [sensitive, setSensitive] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
   const [pollOptions, setPollOptions] = useState(['', '']);
   const [error, setError] = useState('');
@@ -87,6 +88,7 @@ export default function CreateScreen() {
         tag: tag || null,
         link_url: type === 'link' ? linkUrl.trim() : null,
         poll_options: type === 'poll' ? options : null,
+        is_sensitive: sensitive,
       });
       if (error) throw error;
       router.replace('/');
@@ -203,6 +205,18 @@ export default function CreateScreen() {
           </View>
         </Field>
 
+        <Pressable
+            style={[styles.sensitiveRow, sensitive && { borderColor: colors.primary }]}
+            onPress={() => setSensitive((s) => !s)}
+          >
+            <Text style={[styles.sensitiveLabel, sensitive && { color: colors.primaryDark }]}>
+              Marcar como conteúdo sensível
+            </Text>
+            <View style={[styles.checkbox, sensitive && styles.checkboxOn]}>
+              {sensitive && <Text style={styles.checkboxMark}>✓</Text>}
+            </View>
+          </Pressable>
+
         <Text style={styles.hint}>Sua publicação é anônima e pode salvar vidas.</Text>
       </ScrollView>
     </SafeAreaView>
@@ -222,6 +236,18 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
   chipText: { fontSize: 12, fontWeight: '600', color: colors.muted },
   chipTextActive: { color: colors.primaryDark },
+  sensitiveRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    borderWidth: 1, borderColor: colors.border, borderRadius: radius,
+    padding: 12, marginBottom: 12,
+  },
+  sensitiveLabel: { fontSize: 13, fontWeight: '500', color: colors.text, flex: 1 },
+  checkbox: {
+    width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: colors.border,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card,
+  },
+  checkboxOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  checkboxMark: { color: '#fff', fontSize: 13, fontWeight: '700' },
   typeTabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.border, marginBottom: 16 },
   typeTab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
   typeTabActive: { borderBottomColor: colors.primary },

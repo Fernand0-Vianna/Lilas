@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, TouchableOpacity, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -22,6 +22,9 @@ type FeedData = {
   users: any[];
   userVotes: Record<string, number>;
   userSaves: Record<string, boolean>;
+  loadingMore: boolean;
+  hasMore: boolean;
+  loadMore: () => Promise<void>;
   removePost: (id: string) => void;
 };
 
@@ -32,36 +35,48 @@ function useFeed(q: string, scope: string): FeedData {
   const [users, setUsers] = useState<any[]>([]);
   const [userVotes, setUserVotes] = useState<Record<string, number>>({});
   const [userSaves, setUserSaves] = useState<Record<string, boolean>>({});
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const pageRef = useRef(0);
+
+  const buildQuery = useCallback((from: number, to: number) => {
+    return supabase
+      .from('posts')
+      .select('*, profiles!posts_author_id_fkey(apelido, avatar_url), communities(slug, name), likes(vote), comments(count), poll_votes(option_idx)')
+      .order('created_at', { ascending: false })
+      .range(from, to);
+  }, []);
+
+  const applyFilters = useCallback(async (query: any) => {
+    if (scope === 'home' && user?.id) {
+      const [commRes, followRes] = await Promise.all([
+        supabase.from('community_members').select('community_id').eq('user_id', user.id),
+        supabase.from('follows').select('following_id').eq('follower_id', user.id),
+      ]);
+      const communityIds = (commRes.data || []).map((r: any) => r.community_id);
+      const followingIds = (followRes.data || []).map((r: any) => r.following_id);
+      if (!communityIds.length && !followingIds.length) {
+        return null;
+      }
+      const filters = [];
+      if (communityIds.length) filters.push(`community_id.in.(${communityIds.join(',')})`);
+      if (followingIds.length) filters.push(`author_id.in.(${followingIds.join(',')})`);
+      query = query.or(filters.join(','));
+    }
+    if (q) query = query.or(`title.ilike.%${q}%,body.ilike.%${q}%`);
+    return query;
+  }, [scope, q, user?.id]);
 
   useEffect(() => {
+    pageRef.current = 0;
+    setHasMore(true);
+    setPosts([]);
     const userId = user?.id;
 
-    const buildQuery = async () => {
-      let query = supabase
-        .from('posts')
-        .select('*, profiles!posts_author_id_fkey(apelido, avatar_url), communities(slug, name), likes(vote), comments(count), poll_votes(option_idx)')
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (scope === 'home' && userId) {
-        const [commRes, followRes] = await Promise.all([
-          supabase.from('community_members').select('community_id').eq('user_id', userId),
-          supabase.from('follows').select('following_id').eq('follower_id', userId),
-        ]);
-        const communityIds = (commRes.data || []).map((r: any) => r.community_id);
-        const followingIds = (followRes.data || []).map((r: any) => r.following_id);
-        if (!communityIds.length && !followingIds.length) {
-          return { data: [] };
-        }
-        const filters = [];
-        if (communityIds.length) filters.push(`community_id.in.(${communityIds.join(',')})`);
-        if (followingIds.length) filters.push(`author_id.in.(${followingIds.join(',')})`);
-        query = (query as any).or(filters.join(','));
-      }
-
-      if (q) query = (query as any).or(`title.ilike.%${q}%,body.ilike.%${q}%`);
-      return query;
+    const buildRangeQuery = async (from: number, to: number) => {
+      return await applyFilters(buildQuery(from, to));
     };
+
     const userSearch = q.replace(/^[uU@\/]+/, '').trim();
     const usersQuery = userSearch
       ? supabase.from('profiles').select('id, apelido, avatar_url, bio').ilike('apelido', `%${userSearch}%`).limit(10).then((r) => r, () => ({ data: [] }))
@@ -70,10 +85,11 @@ function useFeed(q: string, scope: string): FeedData {
       ? supabase.from('communities').select('*').ilike('name', `%${q}%`).limit(10).then((r) => r, () => ({ data: [] }))
       : supabase.from('communities').select('*').order('members', { ascending: false }).limit(10);
 
-    Promise.all([buildQuery(), communitiesQuery, usersQuery]).then(
+    Promise.all([buildRangeQuery(0, 49), communitiesQuery, usersQuery]).then(
       async ([p, c, u]) => {
-        const allPosts = (p.data || []) as Post[];
+        const allPosts = ((p && p.data) || []) as Post[];
         setPosts(allPosts);
+        setHasMore(allPosts.length === 50);
         setCommunities((c.data || []) as Community[]);
         setUsers(u.data || []);
 
@@ -103,7 +119,47 @@ function useFeed(q: string, scope: string): FeedData {
     });
   }, [q, scope, user?.id]);
 
-  return { posts, communities, users, userVotes, userSaves, removePost: (id) => setPosts((p) => p.filter((x) => x.id !== id)) };
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    const from = (pageRef.current + 1) * 50;
+    const to = from + 49;
+    try {
+      const applied = await applyFilters(buildQuery(from, to));
+      if (!applied) {
+        setHasMore(false);
+      } else {
+        const { data } = await applied;
+        if (data?.length) {
+          pageRef.current += 1;
+          setPosts((prev) => {
+            const ids = new Set(prev.map((x) => x.id));
+            const fresh = (data as Post[]).filter((x) => !ids.has(x.id));
+            return [...prev, ...fresh];
+          });
+          setHasMore(data.length === 50);
+        } else {
+          setHasMore(false);
+        }
+      }
+    } catch {
+      setHasMore(false);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, hasMore, q, scope, user?.id]);
+
+  return {
+    posts,
+    communities,
+    users,
+    userVotes,
+    userSaves,
+    loadingMore,
+    hasMore,
+    loadMore,
+    removePost: (id) => setPosts((p) => p.filter((x) => x.id !== id)),
+  };
 }
 
 function HelpBanner() {
@@ -130,7 +186,7 @@ export default function FeedScreen() {
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
-  const { posts, communities, users, userVotes, userSaves, removePost } = useFeed(query, query ? 'all' : feedScope);
+  const { posts, communities, users, userVotes, userSaves, loadingMore, hasMore, loadMore, removePost } = useFeed(query, query ? 'all' : feedScope);
 
   const sorted = [...posts];
   if (tab === 'top') sorted.sort((a, b) => postScore(b) - postScore(a));
@@ -158,7 +214,14 @@ export default function FeedScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        onScroll={({ nativeEvent }) => {
+          const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+          if (layoutMeasurement.height + contentOffset.y >= contentSize.height - 400) loadMore();
+        }}
+        scrollEventThrottle={200}
+      >
         <HelpBanner />
 
         {query ? <Text style={styles.resultsTitle}>Resultados para "{query}"</Text> : null}
@@ -198,6 +261,10 @@ export default function FeedScreen() {
         {visible.map((p) => (
           <PostCard key={p.id} post={p} onDeleted={() => removePost(p.id)} userVote={userVotes[p.id]} userSaved={userSaves[p.id]} />
         ))}
+
+        {hasMore && (
+          <Text style={{ textAlign: 'center', color: colors.muted, fontSize: 12, paddingVertical: 12 }}>{loadingMore ? 'Carregando...' : ''}</Text>
+        )}
 
         {visible.length === 0 && (
           <View style={styles.emptyCard}>

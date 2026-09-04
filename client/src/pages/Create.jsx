@@ -39,6 +39,7 @@ export default function Create() {
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState('')
   const [tag, setTag] = useState('')
+  const [sensitive, setSensitive] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
   const [pollOptions, setPollOptions] = useState(['', ''])
   const [error, setError] = useState('')
@@ -105,7 +106,8 @@ export default function Create() {
         image_url: imageUrl || null,
         tag: tag || null,
         link_url: type === 'link' ? linkUrl.trim() : null,
-        poll_options: type === 'poll' ? options : null
+        poll_options: type === 'poll' ? options : null,
+        is_sensitive: sensitive
       })
       if (error) throw error
       navigate('/')
@@ -244,6 +246,13 @@ export default function Create() {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="field">
+            <label className="checkbox" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input type="checkbox" checked={sensitive} onChange={e => setSensitive(e.target.checked)} />
+              Conteúdo sensível (será exibido com desfoque até você escolher revelar)
+            </label>
           </div>
 
           <p className="hint">Sua publicação é anônima e pode salvar vidas.</p>
