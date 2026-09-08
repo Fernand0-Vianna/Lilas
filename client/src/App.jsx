@@ -14,6 +14,7 @@ import AdminReports from './pages/AdminReports.jsx'
 import Notifications from './pages/Notifications.jsx'
 import BottomNav from './components/BottomNav.jsx'
 import Icon from './components/Icons.jsx'
+import { supabase } from './lib/supabase.js'
 import { useState, useRef, useEffect } from 'react'
 
 function Topbar() {
