@@ -1,0 +1,57 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "username": "Lilás Team",
+  "default_agent": "orchestrator",
+  "instructions": [
+    "AGENTS.md",
+    "docs/architecture.md",
+    "docs/database.md",
+    "docs/authentication.md",
+    "docs/design-system.md",
+    "docs/routes.md"
+  ],
+  "skills": {
+    "paths": [".opencode/skills"]
+  },
+  "mcp": {
+    "playwright": {
+      "type": "local",
+      "command": ["npx", "-y", "@playwright/mcp@latest"],
+      "enabled": true
+    }
+  },
+  "references": {
+    "docs": {
+      "path": "docs",
+      "description": "Documentação do projeto: arquitetura, banco, auth, design system, rotas, componentes"
+    },
+    "supabase": {
+      "path": "supabase",
+      "description": "Migrations, seeds e configuração do Supabase (schema, RLS, triggers)"
+    },
+    "client": {
+      "path": "client/src",
+      "description": "Código fonte do frontend: páginas, componentes, hooks, lib"
+    }
+  },
+  "agent": {
+    "plan": { "disable": true },
+    "build": { "disable": true },
+    "general": { "disable": true },
+    "orchestrator": { "mode": "primary" },
+    "code-reviewer": { "mode": "subagent", "permission": { "edit": "deny" } },
+    "frontend-architect": { "mode": "subagent", "permission": { "edit": "deny" } },
+    "e2e-qa-engineer": {
+      "mode": "subagent",
+      "permission": {
+        "edit": "deny",
+        "playwright_*": "allow"
+      }
+    },
+    "debug-specialist": { "mode": "subagent" },
+    "frontend-implementer": { "mode": "subagent" },
+    "performance-optimizer": { "mode": "subagent" },
+    "test-engineer": { "mode": "subagent" },
+    "verifier": { "mode": "subagent" }
+  }
+}
