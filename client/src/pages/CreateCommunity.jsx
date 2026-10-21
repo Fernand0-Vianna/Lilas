@@ -10,18 +10,47 @@ export default function CreateCommunity() {
   const [description, setDescription] = useState('')
   const [category, setCategory] = useState('')
   const [rules, setRules] = useState('')
-  const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState({ name: '', general: '' })
   const [loading, setLoading] = useState(false)
 
   const slug = name.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
 
+  const baseInputStyle = {
+    width: '100%',
+    padding: '11px 14px',
+    border: '1.5px solid var(--border)',
+    borderRadius: '10px',
+    fontSize: '14px',
+    fontFamily: 'inherit',
+    outline: 'none',
+    background: 'var(--card)',
+    color: 'var(--text)',
+    transition: 'border-color 0.15s',
+  }
+
+  function inputStyle(hasError) {
+    return {
+      ...baseInputStyle,
+      borderColor: hasError ? 'var(--danger)' : 'var(--border)',
+    }
+  }
+
   async function submit(e) {
     e.preventDefault()
-    setError('')
+    setFieldErrors({ name: '', general: '' })
     const n = name.trim()
-    if (!n) { setError('Dê um nome para a comunidade.'); return }
-    if (n.length < 2) { setError('O nome deve ter ao menos 2 letras.'); return }
-    if (!slug || slug.length < 2) { setError('Use apenas letras e números (acentos são removidos).'); return }
+    if (!n) {
+      setFieldErrors({ name: 'Dê um nome para a comunidade.', general: '' })
+      return
+    }
+    if (n.length < 2) {
+      setFieldErrors({ name: 'O nome deve ter ao menos 2 letras.', general: '' })
+      return
+    }
+    if (!slug || slug.length < 2) {
+      setFieldErrors({ name: 'Use apenas letras e números (acentos são removidos).', general: '' })
+      return
+    }
 
     setLoading(true)
     const { data, error } = await supabase
@@ -38,8 +67,13 @@ export default function CreateCommunity() {
 
     if (error) {
       setLoading(false)
-      if (error.message.includes('duplicate') || error.code === '23505') setError('Já existe uma comunidade com esse nome. Escolha outro.')
-      else setError(error.message)
+      let msg = 'Não foi possível criar a comunidade. Tente novamente.'
+      if (error.code === '23505' || error.message?.toLowerCase().includes('duplicate')) {
+        msg = 'Já existe uma comunidade com esse nome. Escolha outro.'
+      } else if (error.message?.toLowerCase().includes('foreign key')) {
+        msg = 'Não foi possível criar a comunidade. Tente novamente.'
+      }
+      setFieldErrors({ name: '', general: msg })
       return
     }
     navigate(`/c/${data.slug}`)
@@ -52,41 +86,58 @@ export default function CreateCommunity() {
           <h2>Criar comunidade</h2>
           <Link to="/comunidades" className="btn btn-outline">Voltar</Link>
         </div>
-        <form className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }} onSubmit={submit}>
-          <div>
-            <label style={{ fontWeight: 600, fontSize: 14, display: 'block', marginBottom: 6 }}>Nome</label>
+        <form className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }} onSubmit={submit} noValidate>
+          <div className="field">
+            <label htmlFor="name" style={{ fontWeight: 600, fontSize: 14, display: 'block', marginBottom: 6 }}>Nome</label>
             <input
+              id="name"
+              name="name"
               placeholder="ex: Acolhimento"
               value={name}
               onChange={e => setName(e.target.value)}
-              style={{ width: '100%' }}
+              style={inputStyle(!!fieldErrors.name)}
+              onFocus={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(124,92,224,0.1)'; }}
+              onBlur={e => { e.currentTarget.style.borderColor = fieldErrors.name ? 'var(--danger)' : 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
+              aria-invalid={!!fieldErrors.name}
+              aria-describedby={fieldErrors.name ? 'name-error' : undefined}
+              autoComplete="off"
             />
             {name && (
               <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
                 URL: <code>r/{slug || '...'}</code>
               </div>
             )}
+            {fieldErrors.name && <p id="name-error" style={{ color: 'var(--danger)', fontSize: 12, marginTop: 6 }}>{fieldErrors.name}</p>}
           </div>
-          <div>
-            <label style={{ fontWeight: 600, fontSize: 14, display: 'block', marginBottom: 6 }}>Descrição (opcional)</label>
+          <div className="field">
+            <label htmlFor="description" style={{ fontWeight: 600, fontSize: 14, display: 'block', marginBottom: 6 }}>Descrição (opcional)</label>
             <textarea
+              id="description"
+              name="description"
               placeholder="Sobre o que é essa comunidade?"
               value={description}
               onChange={e => setDescription(e.target.value)}
               rows={3}
-              style={{ width: '100%' }}
+              style={{ ...baseInputStyle, resize: 'vertical' }}
+              onFocus={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(124,92,224,0.1)'; }}
+              onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
             />
           </div>
-          <div>
-            <label style={{ fontWeight: 600, fontSize: 14, display: 'block', marginBottom: 6 }}>Categoria (opcional)</label>
+          <div className="field">
+            <label htmlFor="category" style={{ fontWeight: 600, fontSize: 14, display: 'block', marginBottom: 6 }}>Categoria (opcional)</label>
             <input
+              id="category"
+              name="category"
               placeholder="ex: Apoio, Direitos, Saúde"
               value={category}
               onChange={e => setCategory(e.target.value)}
-              style={{ width: '100%' }}
+              style={baseInputStyle}
+              onFocus={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(124,92,224,0.1)'; }}
+              onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
+              autoComplete="off"
             />
           </div>
-          {error && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</p>}
+          {fieldErrors.general && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{fieldErrors.general}</p>}
           <button type="submit" className="btn btn-primary" disabled={loading}>
             {loading ? 'Criando...' : 'Criar comunidade'}
           </button>

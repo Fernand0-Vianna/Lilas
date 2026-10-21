@@ -12,35 +12,32 @@ function Poll({ post }) {
   const [mine, setMine] = useState(-1)
 
   useEffect(() => {
-    const rows = post.poll_votes || []
-    const c = (post.poll_options || []).map((_, i) => rows.filter(r => r.option_idx === i).length)
-    setCounts(c)
+    if (!post.poll_options) return
+    supabase.rpc('get_poll_counts', { p_post_id: post.id }).then(({ data }) => {
+      const map = new Map((data || []).map(r => [r.option_idx, r.cnt]))
+      const c = (post.poll_options || []).map((_, i) => Number(map.get(i) || 0))
+      setCounts(c)
+    })
   }, [post.id])
 
   useEffect(() => {
     if (!post.poll_options) return
     supabase.from('poll_votes').select('option_idx').eq('post_id', post.id).eq('user_id', session.user.id)
       .maybeSingle().then(({ data }) => setMine(data?.option_idx ?? -1))
-  }, [post.id])
+  }, [post.id, session?.user?.id])
 
   async function vote(i) {
     if (mine === i) return
     const prevMine = mine
     setMine(i)
-    setCounts(c => c.map((x, j) => {
-      if (j === i) return x + 1
-      if (prevMine !== -1 && j === prevMine) return x - 1
-      return x
-    }))
     const { error } = await supabase.from('poll_votes')
       .upsert({ post_id: post.id, user_id: session.user.id, option_idx: i })
     if (error) {
       setMine(prevMine)
-      setCounts(c => c.map((x, j) => {
-        if (j === i) return x - 1
-        if (prevMine !== -1 && j === prevMine) return x + 1
-        return x
-      }))
+    } else {
+      const { data } = await supabase.rpc('get_poll_counts', { p_post_id: post.id })
+      const map = new Map((data || []).map(r => [r.option_idx, r.cnt]))
+      setCounts((post.poll_options || []).map((_, idx) => Number(map.get(idx) || 0)))
     }
   }
 
@@ -81,7 +78,7 @@ export default memo(function PostCard({ post, onRemove, canModerate, userVote, u
 
   useEffect(() => {
     setAuthor(post.profiles || null)
-    setScore((post.likes || []).reduce((s, l) => s + (l.vote || 0), 0))
+    supabase.rpc('get_post_score', { p_post_id: post.id }).then(({ data }) => setScore(data ?? 0))
     setComments(post.comments?.[0]?.count ?? 0)
     setVote(userVote ?? 0)
     setSaved(userSaved ?? false)

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
 import { fetchVotesAndSaves } from '../lib/profile-service.js'
@@ -112,12 +112,14 @@ function ModPanel({ community, onRulesSaved }) {
 
 export default function Community() {
   const { slug } = useParams()
+  const navigate = useNavigate()
   const { session, profile } = useAuth()
   const [community, setCommunity] = useState(null)
   const [posts, setPosts] = useState([])
   const [joined, setJoined] = useState(false)
   const [isMod, setIsMod] = useState(false)
   const [showModPanel, setShowModPanel] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [userVotes, setUserVotes] = useState({})
   const [userSaves, setUserSaves] = useState({})
   const [loading, setLoading] = useState(true)
@@ -169,6 +171,26 @@ export default function Community() {
       setJoined(true)
       setCommunity(c => ({ ...c, members: c.members + 1 }))
     }
+  }
+
+  const canDelete = !!profile && !!community && (profile.is_admin || profile.id === community.creator_id)
+
+  // NOTA: requer política RLS DELETE em `communities` permitindo criador ou admin.
+  // Atualmente não há política de delete documentada; sem ela a chamada será bloqueada pelo Supabase.
+  function handleDelete() {
+    setShowDeleteModal(true)
+  }
+
+  async function confirmDelete() {
+    if (!community) return
+    setShowDeleteModal(false)
+    const { error } = await supabase.from('communities').delete().eq('id', community.id)
+    if (error) {
+      setToast('Não foi possível excluir a comunidade. Tente novamente.')
+      setTimeout(() => setToast(''), 3000)
+      return
+    }
+    navigate('/comunidades')
   }
 
   if (loading) return <CommunitySkeleton />
@@ -235,11 +257,81 @@ export default function Community() {
               <div className="comm-created">
                 📅 Criada em {new Date(community.created_at || Date.now()).toLocaleDateString('pt-BR')}
               </div>
+              {canDelete && (
+                <button
+                  className="btn btn-outline"
+                  style={{ color: 'var(--danger)', borderColor: 'var(--danger)', marginTop: 12, width: '100%' }}
+                  onClick={handleDelete}
+                  aria-label="Excluir comunidade"
+                >
+                  Excluir comunidade
+                </button>
+              )}
             </div>
           </aside>
         </div>
       </div>
       {toast && <div className="toast">{toast}</div>}
+      {showDeleteModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-title"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          onClick={() => setShowDeleteModal(false)}
+        >
+          <style>{`
+            .delete-modal { box-sizing: border-box; }
+            .delete-modal-footer { display: flex; gap: 12px; justify-content: flex-end; flex-direction: row; }
+            .delete-modal-btn { width: auto; }
+            @media (max-width: 479px) {
+              .delete-modal { padding: 20px !important; }
+              .delete-modal-footer { flex-direction: column; align-items: stretch; }
+              .delete-modal-btn { width: 100%; }
+            }
+            @media (min-width: 480px) {
+              .delete-modal-btn { width: auto; }
+            }
+          `}</style>
+          <div
+            className="delete-modal"
+            style={{
+              background: 'var(--card)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+              boxShadow: 'var(--shadow)',
+              padding: 24,
+              width: '100%',
+              maxWidth: 420,
+              margin: 'auto',
+              overflow: 'visible',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <h3 id="delete-title" style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700 }}>Excluir comunidade</h3>
+            <p style={{ margin: '0 0 20px', color: 'var(--muted)', fontSize: 14 }}>Esta ação não pode ser desfeita. Todos os posts e membros associados serão removidos.</p>
+            <div className="delete-modal-footer" style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+              <button className="btn btn-outline delete-modal-btn" onClick={() => setShowDeleteModal(false)}>Cancelar</button>
+              <button
+                className="btn delete-modal-btn"
+                style={{ background: 'var(--danger)', color: '#fff', borderColor: 'var(--danger)' }}
+                onClick={confirmDelete}
+              >
+                Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

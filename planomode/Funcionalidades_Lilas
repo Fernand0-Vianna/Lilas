@@ -1,0 +1,126 @@
+Funcionalidades e Próximos Passos:
+
+1. Sistema de usuários
+Essencial:
+[ ] Cadastro
+[ ] Login/logout
+[ ] Recuperação de senha
+[ ] Perfil público
+[ ] Nome de usuário único
+[ ] Avatar
+[ ] Biografia
+[ ] Data de criação da conta
+[ ] Histórico de posts
+[ ] Histórico de comentários
+[ ] Seguir usuários
+[ ] Bloquear usuários
+[ ] Editar perfil
+[ ] Configurações da conta
+
+2. Sistema de posts
+[ ] Post de texto
+[ ] Post com imagem
+[ ] Post com vídeo
+[ ] Post com link
+[ ] Galeria de imagens
+[ ] Enquetes
+[ ] GIFs
+[ ] Editar post
+[ ] Excluir post
+[ ] Denunciar post
+[ ] Salvar post
+[ ] Compartilhar post
+[ ] Fixar post
+[ ] Flair
+
+3. Comentários
+[ ] Comentar em posts
+[ ] Responder comentários
+[ ] Comentários aninhados
+[ ] Upvote/downvote em comentários
+[ ] Editar comentário
+[ ] Excluir comentário
+[ ] Denunciar comentário
+[ ] Salvar comentário
+[ ] Ordenar comentários
+[ ] Carregar respostas progressivamente
+[ ] Mostrar quantidade de respostas
+[ ] Colapsar árvore de comentários
+
+4. Notificações
+[ ] Resposta ao seu comentário
+[ ] Resposta ao seu post
+[ ] Menção @usuario
+[ ] Novo seguidor
+[ ] Convite para comunidade
+[ ] Mensagem recebida
+[ ] Atualização de comunidade
+[ ] Notificação de moderação
+[ ] Push notification no celular
+[ ] Configuração individual das notificações
+
+5. Sistema de mensagens
+[ ] Mensagens privadas
+[ ] Conversas
+[ ] Envio de imagens
+[ ] Notificações
+[ ] Bloquear usuário
+[ ] Denunciar mensagem
+[ ] Histórico de conversa
+
+6. Moderação
+Moderadores
+[ ] Criar/remover moderadores
+[ ] Banir usuário
+[ ] Suspender usuário
+[ ] Silenciar usuário
+[ ] Aprovar posts
+[ ] Remover posts
+[ ] Remover comentários
+[ ] Fixar posts
+[ ] Bloquear threads
+[ ] Configurar regras
+Denúncias
+[ ] Denunciar post
+[ ] Denunciar comentário
+[ ] Denunciar usuário
+[ ] Fila de denúncias
+[ ] Histórico de moderação
+[ ] Sistema de recursos/apelações
+Automação
+[ ] Filtros automáticos
+[ ] AutoModeração
+[ ] Detecção de spam
+[ ] Filtro de palavras
+[ ] Limitação de frequência
+
+7. Adaptação para mobile
+[ ] Layout responsivo
+[ ] Barra inferior de navegação
+[ ] Feed vertical
+[ ] Menu lateral
+[ ] Botão flutuante para criar post
+[ ] Upload pela galeria
+[ ] Upload pela câmera
+[ ] Vídeos em tela cheia
+[ ] Imagens em tela cheia
+[ ] Swipe
+[ ] Comentários adaptados para telas pequenas
+[ ] Bottom sheets
+[ ] Notificações push
+[ ] PWA
+[ ] Deep links
+[ ] Compartilhamento nativo do celular
+
+8. Administração da plataforma
+[ ] Gerenciar usuários
+[ ] Suspender contas
+[ ] Gerenciar comunidades
+[ ] Ver denúncias
+[ ] Gerenciar conteúdo
+[ ] Ver estatísticas
+[ ] Logs
+[ ] Controle de spam
+[ ] Controle de bots
+[ ] Sistema de suporte
+[ ] Auditoria de ações dos moderadores

@@ -39,7 +39,11 @@ function ReportComment({ commentId }) {
 function CommentVote({ comment }) {
   const { session } = useAuth()
   const [vote, setVote] = useState(comment.vote ?? 0)
-  const [score, setScore] = useState(comment.comment_votes?.[0]?.vote ?? 0)
+  const [score, setScore] = useState(0)
+
+  useEffect(() => {
+    supabase.rpc('get_comment_score', { p_comment_id: comment.id }).then(({ data }) => setScore(data ?? 0))
+  }, [comment.id])
 
   async function cast(v) {
     if (vote === v) v = 0
@@ -85,11 +89,11 @@ export default function Post() {
     Promise.all([
       supabase
         .from('posts')
-        .select('id, title, body, image_url, tag, link_url, created_at, author_id, community_id, poll_options, profiles!posts_author_id_fkey(id, apelido, avatar_url), communities(slug, name), likes(vote), comments(count), poll_votes(option_idx)')
+        .select('id, title, body, image_url, tag, link_url, created_at, author_id, community_id, poll_options, profiles!posts_author_id_fkey(id, apelido, avatar_url), communities(slug, name), comments(count)')
         .eq('id', id)
         .single(),
       supabase.from('comments')
-        .select('*, profiles(apelido), comment_votes(vote)')
+        .select('*, profiles(apelido)')
         .eq('post_id', id)
         .order('created_at')
     ]).then(async ([p, c]) => {
@@ -126,7 +130,7 @@ export default function Post() {
       .channel('post-comments')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments', filter: `post_id=eq.${id}` }, (payload) => {
         supabase.from('comments')
-          .select('*, profiles!comments_author_id_fkey(apelido, avatar_url), comment_votes(vote)')
+          .select('*, profiles!comments_author_id_fkey(apelido, avatar_url)')
           .eq('id', payload.new.id)
           .single()
           .then(({ data }) => {
