@@ -47,7 +47,7 @@ export default function Communities() {
   return (
     <div className="container" style={{ maxWidth: 760 }}>
       <div style={{ paddingTop: 24 }}>
-        <div className="create-head"><h2>Comunidades</h2></div>
+        <div className="create-head"><h2>Comunidades</h2><Link to="/criar-comunidade" className="btn btn-primary">Criar comunidade</Link></div>
         <div className="search" style={{ maxWidth: '100%', marginBottom: 16 }}>
           <input placeholder="Buscar comunidades..." value={query} onChange={e => setQuery(e.target.value)} />
         </div>

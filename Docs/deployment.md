@@ -1,21 +1,15 @@
 # Deploy
 
-## Netlify
+## Vercel (produção)
 
 ### Configuração
 
-O arquivo `netlify.toml` na raiz do projeto define a base do build:
-
-```toml
-[build]
-  base = "client"
-```
-
-O Netlify detecta automaticamente o Vite e executa `npm run build` dentro da pasta `client`.
+O arquivo `client/vercel.json` aplica o rewrite de SPA (`/*` → `/index.html`).
+O build é o padrão do Vite (`npm run build` → `dist/`), lido automaticamente pelo Vercel.
 
 ### Variáveis de Ambiente
 
-No painel do Netlify (Site settings → Environment variables), configure:
+No painel do Vercel (Project → Settings → Environment Variables), configure:
 
 | Variável | Valor |
 |----------|-------|
@@ -26,8 +20,8 @@ No painel do Netlify (Site settings → Environment variables), configure:
 
 ### Site em Produção
 
-- **URL:** https://lilas-341.netlify.app
-- **Branch principal:** `main`
+- **URL:** https://lilas-two.vercel.app
+- **Branch principal:** `main` — deploy automático a cada push
 - **Repositório:** https://github.com/Fernand0-Vianna/Lilas
 
 ## Supabase
@@ -42,7 +36,7 @@ No painel do Netlify (Site settings → Environment variables), configure:
 
 | Config | Valor |
 |--------|-------|
-| `site_url` | `https://lilas-341.netlify.app` |
+| `site_url` | `https://lilas-two.vercel.app` |
 | `mailer_autoconfirm` | `false` |
 | `disable_signup` | `false` |
 
@@ -51,14 +45,14 @@ No painel do Netlify (Site settings → Environment variables), configure:
 ### Migrações e Seed
 
 - Migrações aplicadas via Supabase Dashboard ou CLI
-- 7 tabelas criadas com RLS
+- Tabelas com RLS (posts, comments, likes, poll_votes, comment_votes, saves, follows, reports, notifications, communities, community_members, community_mods, community_bans)
 - Trigger `handle_new_user` configurado
 - 5 comunidades seedadas
 
 ### Rate Limit de Email
 
-- **Limite padrão:** 2 emails/hora/IP
-- **Aumentar limite:** Requer configuração de SMTP custom (Resend, SendGrid, etc.)
+- **Limite padrão:** 2 emails/hora/IP — insuficiente para produção
+- **Solução:** configurar SMTP custom no Dashboard (Authentication → SMTP) com um provedor como Resend, Brevo ou SendGrid
 
 ## GitHub
 
@@ -75,7 +69,7 @@ https://github.com/Fernand0-Vianna/Lilas
 ### Workflow de Deploy
 
 1. Push para `main`
-2. Netlify detecta mudança
+2. Vercel detecta mudança
 3. Executa `npm run build` em `client/`
 4. Deploy automático para produção
 
@@ -86,17 +80,16 @@ https://github.com/Fernand0-Vianna/Lilas
    - Anotar `URL` e `anon key`
 
 2. **Configurar banco**
-   - Aplicar migrações (7 tabelas, RLS, trigger)
+   - Aplicar migrações (tabelas, RLS, trigger)
    - Seed das 5 comunidades
 
 3. **Configurar Auth**
    - `site_url` para domínio de produção
-   - Configurar SMTP se necessário
+   - Configurar SMTP custom (Authentication → SMTP)
 
-4. **Configurar Netlify**
+4. **Configurar Vercel**
    - Conectar repositório GitHub
    - Definir variáveis de ambiente
-   - Deploy manual primeiro ou automático via branch
 
 5. **Verificar**
    - Acessar URL de produção

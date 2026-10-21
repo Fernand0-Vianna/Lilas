@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
@@ -12,7 +12,7 @@ function hotScore(post) {
   return order + (new Date(post.created_at).getTime() / 1000) / 45000
 }
 
-function useFeed(q) {
+function useFeed(q, scope) {
   const { session } = useAuth()
   const [posts, setPosts] = useState([])
   const [communities, setCommunities] = useState([])
@@ -20,39 +20,81 @@ function useFeed(q) {
   const [userVotes, setUserVotes] = useState({})
   const [userSaves, setUserSaves] = useState({})
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+  const pageRef = useRef(0)
 
   useEffect(() => {
     setLoading(true)
-    let query = supabase
-      .from('posts')
-      .select(`
-        id, title, body, tag, image_url, link_url, poll_options, created_at, author_id,
-        profiles!posts_author_id_fkey(id, apelido, avatar_url),
-        communities!posts_community_id_fkey(slug, name),
-        likes(vote),
-        comments(count),
-        poll_votes(option_idx)
-      `)
-      .order('created_at', { ascending: false })
-      .limit(50)
-    if (q) query = query.ilike('title', `%${q}%`)
+    setHasMore(true)
+    setPosts([])
+    pageRef.current = 0
+    const userId = session?.user?.id
+
+    const buildQuery = (from, to) => {
+      let query = supabase
+        .from('posts')
+        .select(`
+          id, title, body, tag, image_url, link_url, poll_options, created_at, author_id,
+          profiles!posts_author_id_fkey(id, apelido, avatar_url),
+          communities!posts_community_id_fkey(slug, name),
+          likes(vote),
+          comments(count),
+          poll_votes(option_idx)
+        `)
+        .order('created_at', { ascending: false })
+        .range(from, to)
+
+      return query
+    }
+
+    const applyFilters = async (query) => {
+      if (scope === 'home' && userId) {
+        const [commRes, followRes] = await Promise.all([
+          supabase.from('community_members').select('community_id').eq('user_id', userId),
+          supabase.from('follows').select('following_id').eq('follower_id', userId)
+        ])
+        const communityIds = (commRes.data || []).map(r => r.community_id)
+        const followingIds = (followRes.data || []).map(r => r.following_id)
+        if (!communityIds.length && !followingIds.length) {
+          return null
+        }
+        const filters = []
+        if (communityIds.length) filters.push(`community_id.in.(${communityIds.join(',')})`)
+        if (followingIds.length) filters.push(`author_id.in.(${followingIds.join(',')})`)
+        query = query.or(filters.join(','))
+      }
+      if (q) query = query.or(`title.ilike.%${q}%,body.ilike.%${q}%`)
+      return query
+    }
+
+    const buildRangeQuery = async (from, to) => {
+      let query = buildQuery(from, to)
+      return await applyFilters(query)
+    }
+
     const userSearch = q ? q.replace(/^[uU@\/]+/, '').trim() : ''
     const usersQuery = userSearch
       ? supabase.from('profiles').select('id, apelido, avatar_url, bio').ilike('apelido', `%${userSearch}%`).limit(10).then(r => r, () => ({ data: [] }))
       : Promise.resolve({ data: [] })
+    const communitiesQuery = q
+      ? supabase.from('communities').select('*').ilike('name', `%${q}%`).limit(10).then(r => r, () => ({ data: [] }))
+      : supabase.from('communities').select('*').order('members', { ascending: false }).limit(10)
+
     Promise.all([
-      query,
-      supabase.from('communities').select('*').order('members', { ascending: false }).limit(10),
+      buildRangeQuery(0, 49),
+      communitiesQuery,
       usersQuery
     ]).then(async ([p, c, u]) => {
-      const allPosts = p.data || []
+      const allPosts = (p && p.data) || []
       setPosts(allPosts)
+      setHasMore(allPosts.length === 50)
       setCommunities(c.data || [])
       setUsers(u.data || [])
 
       const postIds = allPosts.map(x => x.id)
-      if (postIds.length && session?.user?.id) {
-        const { votesMap, savesMap } = await fetchVotesAndSaves(postIds, session.user.id)
+      if (postIds.length && userId) {
+        const { votesMap, savesMap } = await fetchVotesAndSaves(postIds, userId)
         setUserVotes(votesMap)
         setUserSaves(savesMap)
       } else {
@@ -69,7 +111,45 @@ function useFeed(q) {
       setUserSaves({})
       setLoading(false)
     })
-  }, [q, session?.user?.id])
+  }, [q, scope, session?.user?.id])
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return
+    setLoadingMore(true)
+    const from = (pageRef.current + 1) * 50
+    const to = from + 49
+    const userId = session?.user?.id
+    try {
+      let query = buildQuery(from, to)
+      const applied = await applyFilters(query)
+      if (!applied) {
+        setHasMore(false)
+      } else {
+        const { data } = await applied
+        if (data?.length) {
+          pageRef.current += 1
+          setPosts(prev => {
+            const ids = new Set(prev.map(p => p.id))
+            const fresh = data.filter(p => !ids.has(p.id))
+            return [...prev, ...fresh]
+          })
+          setHasMore(data.length === 50)
+          const postIds = data.map(x => x.id)
+          if (postIds.length && userId) {
+            const { votesMap, savesMap } = await fetchVotesAndSaves(postIds, userId)
+            setUserVotes(v => ({ ...v, ...votesMap }))
+            setUserSaves(s => ({ ...s, ...savesMap }))
+          }
+        } else {
+          setHasMore(false)
+        }
+      }
+    } catch {
+      setHasMore(false)
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [hasMore, loadingMore, q, scope, session?.user?.id])
 
   // Real-time: sincroniza votos (likes) entre usuários
   useEffect(() => {
@@ -106,15 +186,26 @@ function useFeed(q) {
     setPosts(p => p.filter(x => x.id !== id))
   }, [])
 
-  return { posts, communities, users, userVotes, userSaves, loading, removePost }
+  return { posts, communities, users, userVotes, userSaves, loading, loadingMore, hasMore, loadMore, removePost }
 }
 
 export default function Feed() {
   const [params] = useSearchParams()
   const q = params.get('q') || ''
-  const { posts, communities, users, userVotes, userSaves, loading, removePost } = useFeed(q)
   const { profile } = useAuth()
   const [tab, setTab] = useState('hot')
+  const [feedScope, setFeedScope] = useState('home')
+  const { posts, communities, users, userVotes, userSaves, loading, loadingMore, hasMore, loadMore, removePost } = useFeed(q, q ? 'all' : feedScope)
+  const sentinelRef = useRef(null)
+
+  useEffect(() => {
+    if (!sentinelRef.current) return
+    const io = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) loadMore()
+    }, { rootMargin: '600px' })
+    io.observe(sentinelRef.current)
+    return () => io.disconnect()
+  }, [loadMore, posts])
 
   const sorted = useMemo(() => {
     const s = [...posts]
@@ -175,12 +266,23 @@ export default function Feed() {
                 ))}
               </div>
             )}
+            {!q && (
+              <div className="feed-tabs" style={{ marginBottom: 0 }}>
+                <button className={feedScope === 'home' ? 'active' : ''} onClick={() => { setFeedScope('home'); setTab('hot') }}>Home</button>
+                <button className={feedScope === 'all' ? 'active' : ''} onClick={() => { setFeedScope('all'); setTab('hot') }}>Tudo</button>
+              </div>
+            )}
             <div className="feed-tabs">
               <button className={tab === 'hot' ? 'active' : ''} onClick={() => setTab('hot')}>Em alta</button>
               <button className={tab === 'new' ? 'active' : ''} onClick={() => setTab('new')}>Novo</button>
               <button className={tab === 'top' ? 'active' : ''} onClick={() => setTab('top')}>Mais votado</button>
             </div>
             {visible.map(p => <PostCard key={p.id} post={p} onRemove={removePost} userVote={userVotes[p.id]} userSaved={userSaves[p.id]} />)}
+            {hasMore && (
+              <div ref={sentinelRef} style={{ height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', fontSize: 13 }}>
+                {loadingMore ? 'Carregando...' : ''}
+              </div>
+            )}
             {visible.length === 0 && (
               <div className="card" style={{ textAlign: 'center', padding: 40 }}>
                 <h3>{q ? 'Nada encontrado' : 'Nada por aqui ainda'}</h3>

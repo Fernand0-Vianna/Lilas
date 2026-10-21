@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useAuth } from '../lib/auth.jsx'
@@ -79,6 +79,7 @@ export default function Post() {
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
   const [editingId, setEditingId] = useState(null)
   const [editBody, setEditBody] = useState('')
+  const [sortMode, setSortMode] = useState('melhor')
 
   useEffect(() => {
     Promise.all([
@@ -212,9 +213,10 @@ export default function Post() {
 
   async function saveEdit() {
     if (!editBody.trim()) return
-    const { error } = await supabase.from('comments').update({ body: editBody.trim() }).eq('id', editingId)
+    const now = new Date().toISOString()
+    const { error } = await supabase.from('comments').update({ body: editBody.trim(), edited_at: now }).eq('id', editingId)
     if (error) return
-    setComments(cs => cs.map(x => x.id === editingId ? { ...x, body: editBody.trim() } : x))
+    setComments(cs => cs.map(x => x.id === editingId ? { ...x, body: editBody.trim(), edited_at: now } : x))
     setEditingId(null)
     setEditBody('')
   }
@@ -223,8 +225,15 @@ export default function Post() {
   if (!post) return <div className="container" style={{ paddingTop: 24 }}>Post não encontrado.</div>
 
   // lista plana -> linhas em ordem de thread (DFS), profundidade limitada no recuo
+  const commentScore = c => (c.comment_votes || []).reduce((a, v) => a + (v.vote || 0), 0)
+  const sorted = useMemo(() => {
+    const list = [...comments]
+    if (sortMode === 'novo') list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    else list.sort((a, b) => commentScore(b) - commentScore(a) || new Date(a.created_at) - new Date(b.created_at))
+    return list
+  }, [comments, sortMode])
   const byParent = {}
-  comments.forEach(c => { (byParent[c.parent_id || 'root'] ||= []).push(c) })
+  sorted.forEach(c => { (byParent[c.parent_id || 'root'] ||= []).push(c) })
   const rows = []
   const walk = (pid, depth) => (byParent[pid] || []).forEach(c => { rows.push({ c, depth }); walk(c.id, depth + 1) })
   walk('root', 0)
@@ -251,6 +260,11 @@ export default function Post() {
         <PostCard post={post} canModerate={isMod} onRemove={() => navigate('/')} userVote={userVote} userSaved={userSaved} />
         <div className="card" style={{ marginTop: 16 }}>
           <h3 style={{ fontSize: 16, marginBottom: 12 }}>Comentários</h3>
+          <div className="feed-tabs" style={{ marginBottom: 12 }}>
+            {[['melhor', 'Melhor'], ['topo', 'Topo'], ['novo', 'Novo']].map(([k, label]) => (
+              <button key={k} type="button" className={sortMode === k ? 'active' : ''} onClick={() => setSortMode(k)}>{label}</button>
+            ))}
+          </div>
           {replyForm(addComment, body, setBody)}
           {rows.map(({ c, depth }) => (
             <div key={c.id} className="comment-row">
@@ -280,7 +294,7 @@ export default function Post() {
                       </div>
                     </div>
                   ) : (
-                    <div className="c-body">{c.body}</div>
+                    <div className="c-body">{c.body}{c.edited_at && <span className="edited-mark"> · editado</span>}</div>
                   )}
                   {editingId !== c.id && (
                     <button
